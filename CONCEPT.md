@@ -65,7 +65,7 @@ them and it thrives.
 | State    | How it signals              | How you resolve it                                            |
 | -------- | --------------------------- | ------------------------------------------------------------ |
 | Hungry   | *"Jelly Bean hungry!"* / *"Feed me!"* | Feed it directly (e.g. an apple), build a **hamburger stand**, or make it lunch |
-| Angry    | Sulks / *"is angry at me"*  | **Dig holes** to cheer it, or **give it space** (costs **bean bucks** — e.g. 14 to unlock) |
+| Angry    | Sulks / *"is angry at me"*  | **Give it space** (costs **bean bucks** — e.g. 14 to unlock). Players also try **digging holes**, but that only makes the Jelly Bean angrier — a running gag as they dig more and more to no avail |
 | Cold     | *"Jelly Bean cold. Papa help."* | **Gather feathers** and **knit it a blanket**                |
 | Sleepy   | *"I'm so sleepy."*          | Put it to sleep (*"sleep, sleep"*)                           |
 
@@ -143,7 +143,8 @@ There are "all kinds of fun tasks and challenges." Activities include:
 
 - **Farming.** A fan-favorite task — grow crops and produce (players report harvesting parsley,
   tomatoes, a candy cane, and 100 jelly beans in a single session).
-- **Digging holes.** Both a soothing activity and a way to appease an angry Jelly Bean.
+- **Digging holes.** Players reach for it to calm an angry Jelly Bean — but it backfires, only
+  making the Jelly Bean *angrier*, so they keep digging more holes to no effect (a running gag).
 - **Building.** Constructing houses, toilets, stands, and other village structures.
 - **Mini-games.** Played to earn currency (e.g. to save up bean bucks).
 - **Named challenges.** The **gumdrop challenge** is one recurring, satisfying-to-complete task.
