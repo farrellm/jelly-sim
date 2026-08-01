@@ -1,0 +1,7 @@
+pnpm-lock.yaml
+dist/
+coverage/
+apps/api/src/db/migrations/
+CONCEPT.md
+DESIGN.md
+TRANSCRIPT.md
