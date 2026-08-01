@@ -1,0 +1,94 @@
+import cookie from '@fastify/cookie';
+import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
+import rateLimit from '@fastify/rate-limit';
+import { API_BASE } from '@jelly/shared';
+import { SIM_VERSION } from '@jelly/sim';
+import Fastify, { type FastifyInstance } from 'fastify';
+import type { Sql } from 'postgres';
+import type { Config } from './config.js';
+import type { Db } from './db/client.js';
+import { registerErrorHandler } from './plugins/errors.js';
+import { registerCsrfGuard } from './plugins/security.js';
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    config: Config;
+    db: Db;
+    sql: Sql;
+  }
+}
+
+export interface ServerDeps {
+  config: Config;
+  db: Db;
+  sql: Sql;
+}
+
+/**
+ * Build a configured server without listening, so tests can drive it with
+ * `fastify.inject()` and never bind a port (DESIGN.md §13.2).
+ */
+export async function buildServer({ config, db, sql }: ServerDeps): Promise<FastifyInstance> {
+  const app = Fastify({
+    logger: {
+      level: config.logLevel,
+      // Never log a password or a session token, however deeply nested (§9.3).
+      redact: {
+        paths: [
+          'req.headers.cookie',
+          'req.headers.authorization',
+          'res.headers["set-cookie"]',
+          '*.password',
+          '*.newPassword',
+          '*.currentPassword',
+        ],
+        censor: '[redacted]',
+      },
+    },
+    trustProxy: config.nodeEnv === 'production',
+    disableRequestLogging: config.nodeEnv === 'test',
+  });
+
+  app.decorate('config', config);
+  app.decorate('db', db);
+  app.decorate('sql', sql);
+
+  await app.register(helmet, {
+    // The API serves JSON only; the CSP that matters is the one on the static host.
+    contentSecurityPolicy: false,
+    hsts: config.nodeEnv === 'production' ? { maxAge: 31_536_000, includeSubDomains: true } : false,
+    referrerPolicy: { policy: 'same-origin' },
+  });
+
+  await app.register(cors, {
+    origin: config.corsOrigins,
+    credentials: true,
+    allowedHeaders: ['content-type', 'x-jelly-client'],
+  });
+
+  await app.register(cookie);
+
+  await app.register(rateLimit, {
+    global: false,
+    // §9.3 caps /actions at 120/min per session. Phase 0 has no /actions yet, so this
+    // registers the plugin and leaves the per-route limits to the routes.
+    keyGenerator: (request) => request.ip,
+  });
+
+  registerCsrfGuard(app, config);
+  registerErrorHandler(app);
+
+  app.get('/healthz', async () => ({ ok: true }));
+
+  app.get(`${API_BASE}/content`, async (_request, reply) => {
+    // The balance tables land here in Phase 2; until then the only thing worth telling a
+    // client is which rules version the server is running. §8 wants this ETag'd, which
+    // becomes worth doing once the payload is bigger than two fields.
+    const body = { simVersion: SIM_VERSION, content: {} };
+    void reply.header('cache-control', 'public, max-age=60');
+    return body;
+  });
+
+  return app;
+}
