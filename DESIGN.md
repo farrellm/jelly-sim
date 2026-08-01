@@ -107,8 +107,9 @@ graph TB
     UI --> SIM1
   end
 
-  subgraph Edge["Static Host — Cloudflare Pages"]
+  subgraph Edge["Cloudflare Pages — the only origin the browser ever sees"]
     ASSETS["JS / CSS / SVG sprites / audio"]
+    PROXY["Pages Function<br/>/api/* reverse proxy"]
   end
 
   subgraph Server["apps/api — Fastify on Fly.io"]
@@ -120,12 +121,18 @@ graph TB
 
   DB[("Postgres<br/>Neon")]
 
-  UI -->|HTTPS JSON| AUTH
-  UI -->|HTTPS JSON| GAME
-  Device --> ASSETS
+  UI -->|app shell + assets| ASSETS
+  UI -->|"HTTPS JSON — relative /api/*<br/>session cookie attached"| PROXY
+  PROXY -->|HTTPS JSON| AUTH
+  PROXY -->|HTTPS JSON| GAME
   AUTH --> DB
   GAME --> DB
 ```
+
+The client never addresses the Fly app directly, and that hop through Pages is not
+incidental plumbing: `SameSite=Lax` session cookies (§9.2) are only sent to the origin that
+set them, so a browser talking straight to `*.fly.dev` would be permanently signed out.
+§14 has the full reasoning.
 
 ### Repo layout
 
