@@ -1,0 +1,31 @@
+{
+  "name": "Jelly Bean Simulator",
+  "short_name": "Jelly Bean",
+  "description": "Raise a Jelly Bean. Keep it thriving.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FFF7FA",
+  "theme_color": "#F7B2C4",
+  "icons": [
+    {
+      "src": "/icons/bean.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/bean-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/bean-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

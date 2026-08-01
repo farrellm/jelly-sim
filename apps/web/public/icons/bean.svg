@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="A jelly bean">
+  <!--
+    Flat vector, candy pastel, thick outlines, per the art direction in DESIGN.md §6.6.
+    Maskable icons get cropped to a circle on some launchers, so the bean sits well inside
+    the safe zone (the middle 80%).
+  -->
+  <rect width="512" height="512" rx="112" fill="#FFF7FA" />
+  <g transform="translate(256 256) scale(1.55)">
+    <path
+      d="M -104 -8 a 104 88 0 0 1 104 -88 a 104 88 0 0 1 104 88 a 104 88 0 0 1 -104 96 a 104 88 0 0 1 -104 -96 z"
+      fill="#F7B2C4"
+      stroke="#5C4A5E"
+      stroke-width="18"
+      stroke-linejoin="round"
+      transform="rotate(-18)"
+    />
+    <ellipse cx="-34" cy="-46" rx="26" ry="20" fill="#FFF7FA" opacity="0.75" transform="rotate(-18)" />
+    <circle cx="-38" cy="-4" r="11" fill="#5C4A5E" />
+    <circle cx="34" cy="-12" r="11" fill="#5C4A5E" />
+    <path d="M -20 34 q 22 20 46 -4" fill="none" stroke="#5C4A5E" stroke-width="12" stroke-linecap="round" />
+  </g>
+</svg>
