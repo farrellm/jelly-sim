@@ -26,6 +26,15 @@ export default tseslint.config(
     },
   },
 
+  // Plain-JS build scripts run in Node, where console and process exist. (The TypeScript
+  // sources get this from typescript-eslint, which knows @types/node.)
+  {
+    files: ['**/*.mjs', '**/scripts/**/*.js'],
+    languageOptions: {
+      globals: { console: 'readonly', process: 'readonly' },
+    },
+  },
+
   // DESIGN.md §4.2 — determinism rules for the simulation core.
   //
   // These are not style preferences. The client and the server both run @jelly/sim and

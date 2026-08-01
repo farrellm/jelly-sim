@@ -1,0 +1,48 @@
+# DESIGN.md §14. Two shared-CPU instances, one region, in front of a Neon database.
+#
+# Nothing here is live until `fly launch` claims the app name and DATABASE_URL is set as a
+# secret. Committed now so the deployment shape is reviewable alongside the code it
+# deploys.
+
+app = "jelly-sim-api"
+primary_region = "ord"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[deploy]
+  # Migrations run before the new version takes traffic (§14). They must stay backward
+  # compatible with the previous version for one deploy, because the old instances keep
+  # serving while this runs.
+  release_command = "node dist/migrate.js"
+  strategy = "rolling"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "3000"
+  HOST = "0.0.0.0"
+  # The origin the *browser* sees. Requests arrive via the Pages Function that proxies
+  # /api, so this is the Pages hostname, not this app's. Both the CORS allowlist and the
+  # Origin check read it (§9.3).
+  CORS_ORIGINS = "https://jelly-sim.pages.dev"
+  COOKIE_SECURE = "true"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  # The lazy-tick architecture means no per-player compute when nobody is playing, but a
+  # cold start on the first check-in of the morning is exactly the wrong moment for it.
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "30s"
+    method = "GET"
+    path = "/healthz"
+    timeout = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

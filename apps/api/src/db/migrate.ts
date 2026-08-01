@@ -1,11 +1,20 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Sql } from 'postgres';
-import postgres from 'postgres';
-import { loadEnvFile } from '../env.js';
 
-const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), 'migrations');
+/**
+ * `migrations/` sits beside this file in source, and beside the bundle in the production
+ * image (scripts/build.mjs copies it there). Try both rather than making the runtime
+ * layout depend on how the code was built.
+ */
+const MIGRATIONS_DIR = (() => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  for (const candidate of [join(here, 'migrations'), join(here, 'db', 'migrations')]) {
+    if (existsSync(candidate)) return candidate;
+  }
+  throw new Error(`No migrations directory found near ${here}`);
+})();
 
 /**
  * A deliberately small migration runner: apply every .sql file in `migrations/` in
@@ -49,21 +58,5 @@ export async function runMigrations(sql: Sql, log: (msg: string) => void = () =>
     log(`schema up to date (${files.length} migration(s))`);
   } finally {
     await sql`SELECT pg_advisory_unlock(4820163)`;
-  }
-}
-
-const isCli = process.argv[1] && import.meta.url === `file://${process.argv[1]}`;
-if (isCli) {
-  loadEnvFile();
-  const url = process.env.DATABASE_URL;
-  if (!url) {
-    console.error('DATABASE_URL is not set. Copy .env.example to .env.');
-    process.exit(1);
-  }
-  const sql = postgres(url, { max: 1, onnotice: () => {} });
-  try {
-    await runMigrations(sql, (m) => console.log(m));
-  } finally {
-    await sql.end();
   }
 }

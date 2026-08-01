@@ -1,0 +1,5 @@
+# Client-side routing: every path that is not a real file renders the app, which then
+# reads the URL. Without this, a hard refresh on /farm is a 404 from the CDN.
+# /api/* is handled by the Pages Function and must not be rewritten.
+/api/*  /api/:splat  200
+/*      /index.html  200
