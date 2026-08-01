@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Jelly Bean">
+  <defs>
+    <radialGradient id="bean" cx="38%" cy="30%" r="78%">
+      <stop offset="0%" stop-color="#ff9ec7" />
+      <stop offset="55%" stop-color="#ff5f9e" />
+      <stop offset="100%" stop-color="#c62a6b" />
+    </radialGradient>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4b2d6b" />
+      <stop offset="100%" stop-color="#2b1b3d" />
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="url(#sky)" />
+
+  <!-- the bean: a fat kidney shape -->
+  <path
+    d="M182 108c74-26 158 6 190 78 32 72 8 162-58 202-66 40-150 24-190-38-40-62-24-146 26-198 10-11 21-31 32-44z"
+    fill="url(#bean)" />
+  <ellipse cx="196" cy="186" rx="44" ry="30" fill="#fff" opacity=".45" transform="rotate(-28 196 186)" />
+
+  <!-- face -->
+  <circle cx="216" cy="266" r="16" fill="#2b1b3d" />
+  <circle cx="304" cy="252" r="16" fill="#2b1b3d" />
+  <path d="M214 320c26 26 66 22 88-8" stroke="#2b1b3d" stroke-width="16" stroke-linecap="round" fill="none" />
+</svg>

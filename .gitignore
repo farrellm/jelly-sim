@@ -1,1 +1,17 @@
 TRANSCRIPT.md
+
+# dependencies
+node_modules/
+
+# builds
+dist/
+client/dev-dist/
+
+# sqlite database (DESIGN.md §12)
+data/
+
+# env & tooling
+.env
+.env.local
+coverage/
+*.tsbuildinfo

@@ -1,0 +1,38 @@
+{
+  "name": "jelly-sim",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Jelly Bean Simulator — an iPhone-first PWA life-sim (see CONCEPT.md / DESIGN.md)",
+  "workspaces": [
+    "shared",
+    "client",
+    "server"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "concurrently -n server,client -c magenta,cyan \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:server": "npm run dev --workspace server",
+    "dev:client": "npm run dev --workspace client",
+    "build": "npm run build --workspace client && npm run build --workspace server",
+    "start": "npm run start --workspace server",
+    "test": "npm run test --workspace shared && npm run test --workspace server",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "db:generate": "npm run db:generate --workspace server",
+    "db:migrate": "npm run db:migrate --workspace server"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.3",
+    "typescript": "~5.9.3"
+  },
+  "allowScripts": {
+    "esbuild@0.18.20": true,
+    "esbuild@0.25.12": true,
+    "esbuild@0.27.7": true,
+    "esbuild@0.28.1": true,
+    "bcrypt@6.0.0": true,
+    "better-sqlite3@12.11.1": true
+  }
+}

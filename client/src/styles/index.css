@@ -1,0 +1,95 @@
+@import "tailwindcss";
+
+/* Candy palette (CONCEPT §1: "warm, whimsical, candy-colored"). */
+@theme {
+  --color-grape-950: #1d1129;
+  --color-grape-900: #2b1b3d;
+  --color-grape-800: #3d2755;
+  --color-grape-700: #4b2d6b;
+  --color-bubblegum-400: #ff9ec7;
+  --color-bubblegum-500: #ff5f9e;
+  --color-bubblegum-600: #c62a6b;
+  --color-lime-candy: #9ee493;
+  --color-lemon-candy: #ffd166;
+  --color-cherry-candy: #ef476f;
+  --color-blueberry-candy: #6bb8ff;
+
+  --font-display: "Baloo 2", "Trebuchet MS", ui-rounded, system-ui, sans-serif;
+}
+
+/* Safe-area padding for the notch and home indicator (DESIGN.md §2). */
+@utility pt-safe {
+  padding-top: max(1rem, env(safe-area-inset-top));
+}
+@utility pb-safe {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+@utility px-safe {
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+
+/* Apple HIG: every tap target is at least 44x44. */
+@utility tap {
+  min-height: 44px;
+  min-width: 44px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-grape-950);
+  color: white;
+  font-family: ui-rounded, "Trebuchet MS", system-ui, sans-serif;
+  overscroll-behavior-y: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+@keyframes bean-idle {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-1deg) scale(1);
+  }
+  50% {
+    transform: translateY(-8px) rotate(1deg) scale(1.02);
+  }
+}
+
+@keyframes bean-sulk {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg) scale(0.98);
+  }
+  25% {
+    transform: translateY(2px) rotate(-2deg) scale(0.98);
+  }
+  75% {
+    transform: translateY(2px) rotate(2deg) scale(0.98);
+  }
+}
+
+.animate-bean-idle {
+  animation: bean-idle 3.2s ease-in-out infinite;
+}
+
+.animate-bean-sulk {
+  animation: bean-sulk 1.4s ease-in-out infinite;
+}
