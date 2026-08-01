@@ -8,8 +8,11 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import type { Sql } from 'postgres';
 import type { Config } from './config.js';
 import type { Db } from './db/client.js';
+import { registerRequireAuth } from './auth/requireAuth.js';
 import { registerErrorHandler } from './plugins/errors.js';
 import { registerCsrfGuard } from './plugins/security.js';
+import { registerAuthRoutes } from './routes/auth.js';
+import { registerStateRoutes } from './routes/state.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -50,6 +53,22 @@ export async function buildServer({ config, db, sql }: ServerDeps): Promise<Fast
     disableRequestLogging: config.nodeEnv === 'test',
   });
 
+  // Several POSTs take no body at all (logout, logout-all, and later the claim routes).
+  // Fastify's default JSON parser rejects an empty body outright, and the client sends a
+  // Content-Type on every request, so treat empty as {}.
+  app.addContentTypeParser(
+    'application/json',
+    { parseAs: 'string' },
+    (_request, payload: string, done) => {
+      if (payload === '') return done(null, {});
+      try {
+        done(null, JSON.parse(payload));
+      } catch (err) {
+        done(err as Error, undefined);
+      }
+    },
+  );
+
   app.decorate('config', config);
   app.decorate('db', db);
   app.decorate('sql', sql);
@@ -78,6 +97,7 @@ export async function buildServer({ config, db, sql }: ServerDeps): Promise<Fast
 
   registerCsrfGuard(app, config);
   registerErrorHandler(app);
+  registerRequireAuth(app);
 
   app.get('/healthz', async () => ({ ok: true }));
 
@@ -89,6 +109,9 @@ export async function buildServer({ config, db, sql }: ServerDeps): Promise<Fast
     void reply.header('cache-control', 'public, max-age=60');
     return body;
   });
+
+  registerAuthRoutes(app, API_BASE);
+  registerStateRoutes(app, API_BASE);
 
   return app;
 }
