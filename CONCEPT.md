@@ -100,15 +100,18 @@ your Jelly Bean needs before you've looked at the screen.
 |---|---|---|---|
 | Hungry | *"Jelly Bean hungry!"* / *"Mama! Feed me!"* | Give it food — an apple, a hamburger from your hamburger stand | Item or jelly coins |
 | Cold | *"Jelly Bean cold. Papa help."* | Gather feathers, knit a blanket | Gathering time |
-| Angry | (mood indicator) | Give it **space**, or dig more holes | 14+ bean bucks for space; holes are free but slow |
+| Angry | (mood indicator) | Give it **space**. Digging holes does *not* help — it makes things worse | 14+ bean bucks for space |
 | Sleepy | *"Jelly Bean, sleep, sleep."* | Put it to bed | Free |
 
 Notes on canon behavior:
 
 - **Anger is the expensive need.** Giving your Jelly Bean space costs bean bucks, and players who
-  are short will grind mini-games to afford it. Digging holes is the free alternative and players
-  fall back on it repeatedly ("Maybe I need to dig more holes"), with mixed results — a Jelly Bean
-  can stay angry through several rounds of hole-digging.
+  are short will grind mini-games to afford it.
+- **Digging holes is a trap.** Players who can't afford space convince themselves that digging
+  holes will calm their Jelly Bean down — *"Maybe I need to dig more holes"* — and it does the
+  opposite. Every hole you dig makes your Jelly Bean angrier. The player who says *"My Jelly Bean
+  is still angry at me. I better dig more holes"* has been digging for a while and is about to make
+  it worse.
 - **Needs run while you are away.** Your Jelly Bean gets hungry, cold, and angry whether or not the
   app is open, and it calls for you when it does.
 - **Toilets matter.** Building a toilet is an early milestone purchase and players announce it as
@@ -117,6 +120,10 @@ Notes on canon behavior:
 *Extrapolated:* Each need is a 0–100 meter that decays on a real-time clock. Letting a meter bottom
 out doesn't kill the Jelly Bean — it stalls progression, blocks quests, and tanks the mood stat
 that gates "thriving." Unlocking **kitchen skills** halts hunger decay entirely (see §8).
+
+*Extrapolated:* Each dug hole applies a small permanent penalty to the mood meter. The game never
+surfaces the connection — nothing in the UI links holes to mood — so the folk theory survives
+contact with the evidence and spreads between players. Filling a hole back in costs bean bucks.
 
 ---
 
@@ -220,7 +227,8 @@ explained.)
 
 **Canon gathering:** **feathers**, gathered to knit a blanket when your Jelly Bean is cold.
 
-**Digging holes** is a free, repeatable activity used to manage your Jelly Bean's anger.
+**Digging holes** is a free, repeatable activity that players *believe* manages their Jelly Bean's
+anger. It does the opposite — see §5. It remains one of the most-performed actions in the game.
 
 *Extrapolated:* Crops grow on real-time timers of varying length — parsley in minutes, candy canes
 in hours — so there is always something ready and never everything ready. Gathering nodes (feathers,
@@ -384,7 +392,7 @@ Things the source leaves genuinely undefined, which a builder must decide:
 | **larva stage** | An early life-cycle stage. |
 | **flavor** | Your Jelly Bean's variety; unlocked by leveling. |
 | **space** | What an angry Jelly Bean wants. Costs bean bucks. |
-| **digging holes** | Free alternative to giving space. Results vary. |
+| **digging holes** | What players do when they can't afford space. Makes the Jelly Bean angrier. |
 | **gumdrop challenge** | A named recurring challenge type. |
 | **candy castle** | A location you escape from. |
 | **watermelon witch** | A boss you defeat. |
