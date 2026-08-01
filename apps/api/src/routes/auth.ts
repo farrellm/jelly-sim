@@ -58,7 +58,7 @@ export function registerAuthRoutes(app: FastifyInstance, prefix: string): void {
    */
   app.post(
     `${prefix}/auth/register`,
-    { config: { rateLimit: { max: 5, timeWindow: '1 hour' } } },
+    { config: { rateLimit: { max: app.config.registerLimitPerHour, timeWindow: '1 hour' } } },
     async (request, reply) => {
       const body = parseBody(RegisterBody, request.body);
 

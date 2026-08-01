@@ -1215,8 +1215,14 @@ Vitest, pure functions, no fixtures beyond JSON states. Target **> 90 % branch c
 
 ### 13.2 API
 
-`fastify.inject()` against a real Postgres in Docker (Testcontainers), migrations applied
-per suite. Coverage: auth flows including lockout and revocation, `409` concurrency under
+`fastify.inject()` against a real Postgres in Docker, migrations applied per suite.
+
+> **Build note (Phase 0):** the database comes from `TEST_DATABASE_URL` — the Docker
+> Compose instance locally, a service container in CI — rather than from Testcontainers.
+> Same guarantee, no image pull per suite. Testcontainers remains a drop-in swap if the
+> suite ever needs a database it can throw away mid-run.
+
+Coverage: auth flows including lockout and revocation, `409` concurrency under
 simulated concurrent devices, every action rejection code, gift caps and bonus bean
 eligibility, and authorization (player A cannot read or write player B).
 

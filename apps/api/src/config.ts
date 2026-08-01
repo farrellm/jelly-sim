@@ -16,6 +16,12 @@ const Env = z.object({
     .optional()
     .transform((v) => v === undefined || v === 'true'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).optional(),
+  /**
+   * Registrations per hour per IP (§9.3). Configurable because it is the one limit a test
+   * suite trips over immediately — every inject() shares an address — and because a
+   * launch day may want it looser than a quiet Tuesday.
+   */
+  REGISTER_LIMIT_PER_HOUR: z.coerce.number().int().positive().default(5),
 });
 
 export type Config = {
@@ -26,6 +32,7 @@ export type Config = {
   corsOrigins: string[];
   cookieSecure: boolean;
   logLevel: string;
+  registerLimitPerHour: number;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -46,5 +53,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       .filter(Boolean),
     cookieSecure: e.COOKIE_SECURE,
     logLevel: e.LOG_LEVEL ?? (e.NODE_ENV === 'test' ? 'silent' : 'info'),
+    registerLimitPerHour: e.REGISTER_LIMIT_PER_HOUR,
   };
 }
