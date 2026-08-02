@@ -35,6 +35,11 @@ export default defineConfig({
     port: 5273,
     strictPort: true,
     proxy: apiProxy,
+    // Vite refuses requests whose Host header it does not recognise, which otherwise makes
+    // the dev server unreachable under a public hostname. This one exists so the game can
+    // be opened on a real iPhone — the half of the Phase 0 exit criterion (§15) that
+    // localhost cannot prove.
+    allowedHosts: ['jelly-sim.duckdns.org'],
   },
   // `make start` serves the built app from here, so it needs the same port and the same
   // proxy as the dev server. vite preview inherits neither.
