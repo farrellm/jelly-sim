@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client.js';
+import { STATE_QUERY_KEY } from '../game/useGame.js';
 import { useSession } from '../session.js';
 import styles from './Island.module.css';
 
@@ -13,7 +14,7 @@ import styles from './Island.module.css';
 export function Island() {
   const session = useSession();
   const player = session.data?.players[0];
-  const state = useQuery({ queryKey: ['state'], queryFn: api.state });
+  const state = useQuery({ queryKey: STATE_QUERY_KEY, queryFn: () => api.state() });
 
   return (
     <div className={styles.island}>
