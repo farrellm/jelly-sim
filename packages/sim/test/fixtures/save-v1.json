@@ -1,0 +1,60 @@
+{
+  "rng": [3239801055, 3819880769, 3697009996, 2236769181],
+  "bean": {
+    "hp": 30,
+    "name": "Pip",
+    "hobby": null,
+    "holes": 0,
+    "needs": {
+      "mood": 100,
+      "rest": 100,
+      "hunger": 100,
+      "warmth": 100
+    },
+    "stage": "larva",
+    "trade": null,
+    "flavor": "original",
+    "careDays": 0,
+    "stageEnteredMs": 1785633893345
+  },
+  "mode": "regular",
+  "daily": {
+    "dayKey": "2026-08-02",
+    "giftsSent": 0,
+    "minigamePlays": {}
+  },
+  "energy": {
+    "value": 60,
+    "lastRegenMs": 1785633893345
+  },
+  "island": {
+    "nodes": [],
+    "plots": [],
+    "tiles": [],
+    "weather": "clear",
+    "unlockedParcels": 1
+  },
+  "pantry": 0,
+  "quests": [],
+  "wallet": {
+    "beanBucks": 0,
+    "bonusBeans": 0,
+    "jellyCoins": 0
+  },
+  "worldMs": 1785633893345,
+  "counters": {
+    "harvests": 0,
+    "spacesGiven": 0,
+    "holesDugTotal": 0
+  },
+  "progress": {
+    "xp": 0,
+    "level": 1,
+    "skills": [],
+    "enrolledUntilMs": null,
+    "flavorsUnlocked": ["original"]
+  },
+  "adventure": null,
+  "inventory": {},
+  "simVersion": 1
+}

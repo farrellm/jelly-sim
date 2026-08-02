@@ -19,4 +19,5 @@ export * from './rng.js';
 export * from './state.js';
 export * from './time.js';
 export { createInitialState, type NewGameOptions } from './initialState.js';
+export { migrate, migrations } from './migrate.js';
 export { SIM_VERSION } from './version.js';

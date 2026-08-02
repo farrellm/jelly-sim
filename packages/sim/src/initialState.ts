@@ -16,9 +16,14 @@ export interface NewGameOptions {
  * The state a Jelly Bean starts life in, the moment Dr. Bubblegum grants the plot.
  *
  * A larva with full meters, an empty island, and no money. Everything a player will ever
- * have is earned from here. The one thing worth noticing is what is *absent*: no starting
- * plot, no starting currency, no tutorial gifts — the Arrival quest chain (§5.8) hands
- * those out in Phase 5, and until then the emptiness is the honest state of the game.
+ * have is earned from here — no starting plot, no starting currency, and in particular no
+ * bean bucks, because a new player being unable to afford the 14 for space is the tension
+ * the whole economy hangs off `[C§11]`.
+ *
+ * ⚙ The one exception is the arrival basket below, and it is scaffolding. Feeding needs an
+ * item and warming needs a blanket, but crops, gathering, and crafting are all Phase 2, so
+ * without a basket the Phase 1 care loop is a bark you cannot answer. The Arrival quest
+ * chain (§5.8) hands out a real starter kit in Phase 5; this goes away when it lands.
  */
 export function createInitialState(opts: NewGameOptions): PlayerState {
   const { beanName, nowMs, seed, mode = 'regular' } = opts;
@@ -37,6 +42,7 @@ export function createInitialState(opts: NewGameOptions): PlayerState {
       careDays: 0,
       needs: { hunger: 100, warmth: 100, rest: 100, mood: 100 },
       holes: 0,
+      asleepSinceMs: null,
       trade: null,
       hobby: null,
       hp: 30, // 30 + 10 · stageIndex, and larva is index 0 (§5.7)
@@ -60,7 +66,8 @@ export function createInitialState(opts: NewGameOptions): PlayerState {
       unlockedParcels: 1,
     },
 
-    inventory: {},
+    // ⚙ The arrival basket. Phase 1 scaffolding — see the note above.
+    inventory: { hamburger: 3, blanket: 1 },
     pantry: 0,
 
     quests: [],
