@@ -22,6 +22,18 @@ const Env = z.object({
    * launch day may want it looser than a quiet Tuesday.
    */
   REGISTER_LIMIT_PER_HOUR: z.coerce.number().int().positive().default(5),
+  /**
+   * Lets a request name its own "now" via the `x-test-now` header (§13.3).
+   *
+   * The end-to-end suite has to be able to close the tab, wait fourteen hours, and come
+   * back, and the only alternatives are sleeping for fourteen hours or mocking the clock
+   * inside the server it is supposed to be testing from the outside. Refused outright in
+   * production regardless of this flag — see time.ts.
+   */
+  TEST_CLOCK: z
+    .string()
+    .optional()
+    .transform((v) => v === '1' || v === 'true'),
 });
 
 export type Config = {
@@ -33,6 +45,7 @@ export type Config = {
   cookieSecure: boolean;
   logLevel: string;
   registerLimitPerHour: number;
+  allowTestClock: boolean;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -54,5 +67,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     cookieSecure: e.COOKIE_SECURE,
     logLevel: e.LOG_LEVEL ?? (e.NODE_ENV === 'test' ? 'silent' : 'info'),
     registerLimitPerHour: e.REGISTER_LIMIT_PER_HOUR,
+    // Belt and braces: the flag can only ever be on outside production.
+    allowTestClock: e.TEST_CLOCK && e.NODE_ENV !== 'production',
   };
 }

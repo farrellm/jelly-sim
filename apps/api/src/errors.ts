@@ -10,11 +10,17 @@ export class ApiError extends Error {
   readonly status: number;
   readonly details?: { path: string; message: string }[];
   readonly headers?: Record<string, string>;
+  /** Extra top-level fields for the §8 envelope, e.g. the stateVersion on a 409. */
+  readonly extra?: Record<string, unknown>;
 
   constructor(
     code: ErrorCode,
     message: string,
-    opts: { details?: { path: string; message: string }[]; headers?: Record<string, string> } = {},
+    opts: {
+      details?: { path: string; message: string }[];
+      headers?: Record<string, string>;
+      extra?: Record<string, unknown>;
+    } = {},
   ) {
     super(message);
     this.name = 'ApiError';
@@ -22,6 +28,7 @@ export class ApiError extends Error {
     this.status = HTTP_STATUS_FOR_ERROR[code];
     this.details = opts.details;
     this.headers = opts.headers;
+    this.extra = opts.extra;
   }
 }
 
@@ -34,6 +41,16 @@ export const notFound = (msg = 'Not found.') => new ApiError('NOT_FOUND', msg);
 
 export const validation = (msg: string, details?: { path: string; message: string }[]) =>
   new ApiError('VALIDATION', msg, { details });
+
+/**
+ * Optimistic concurrency lost (§7). The client is holding a stale save — usually because
+ * the player has the game open on a phone and a laptop `[C§17]` — so the current version
+ * rides along in the body and the client refetches and replays rather than merging.
+ */
+export const stateConflict = (stateVersion: number) =>
+  new ApiError('STATE_CONFLICT', 'Your Jelly Bean moved on without you. Catching up…', {
+    extra: { stateVersion },
+  });
 
 export const rateLimited = (msg: string, retryAfterSeconds: number) =>
   new ApiError('RATE_LIMITED', msg, {
