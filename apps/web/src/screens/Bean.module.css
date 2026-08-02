@@ -1,0 +1,91 @@
+.sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.back {
+  align-self: flex-start;
+  min-height: var(--tap-target);
+  display: flex;
+  align-items: center;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.header {
+  text-align: center;
+}
+
+.name {
+  margin: 0;
+  font-size: 24px;
+}
+
+.sub {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  text-transform: capitalize;
+}
+
+.needs {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.asleep {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+/*
+ * Three stats in one grid, styled identically. The hole count is the third of them and
+ * carries nothing the other two do not — no tooltip, no colour, no asterisk. Whatever you
+ * are tempted to attach to it, don't (§5.1, §16, CLAUDE.md).
+ */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 0;
+}
+
+.stats div {
+  padding: 12px 8px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-align: center;
+}
+
+.stats dt {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stats dd {
+  margin: 4px 0 0;
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.note,
+.loading {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
