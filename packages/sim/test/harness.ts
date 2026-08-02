@@ -1,5 +1,7 @@
 import { expect } from 'vitest';
+import type { Action, RejectCode } from '../src/action.js';
 import { advance } from '../src/advance.js';
+import { apply } from '../src/apply.js';
 import type { NeedId, Stage } from '../src/content.js';
 import type { SimEvent } from '../src/events.js';
 import { createInitialState } from '../src/initialState.js';
@@ -47,6 +49,24 @@ export class Clock {
 
   advanceDays(days: number): this {
     return this.step(days * MS_PER_DAY);
+  }
+
+  /** Apply an intent at the current instant, failing the test if it is refused. */
+  do(action: Action, times = 1): this {
+    for (let i = 0; i < times; i += 1) {
+      const result = apply(this.state, action, this.nowMs);
+      if (!result.ok) throw new Error(`${action.t} rejected: ${result.code} — ${result.message}`);
+      this.state = result.state;
+      this.events = result.events;
+    }
+    return this;
+  }
+
+  /** Apply an intent that is expected to be refused, and hand back the refusal. */
+  expectReject(action: Action): { code: RejectCode; message: string } {
+    const result = apply(this.state, action, this.nowMs);
+    if (result.ok) throw new Error(`${action.t} was expected to be rejected, but succeeded`);
+    return { code: result.code, message: result.message };
   }
 
   need(need: NeedId): number {

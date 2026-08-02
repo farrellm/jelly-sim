@@ -21,5 +21,14 @@ export * from './time.js';
 export { createInitialState, type NewGameOptions } from './initialState.js';
 export { migrate, migrations } from './migrate.js';
 export { advance, type AdvanceResult } from './advance.js';
+export { apply } from './apply.js';
+export {
+  PHASE_1_ACTIONS,
+  REJECT_CODES,
+  type Action,
+  type ActionType,
+  type ApplyResult,
+  type RejectCode,
+} from './action.js';
 export type { SimEvent } from './events.js';
 export { SIM_VERSION } from './version.js';
