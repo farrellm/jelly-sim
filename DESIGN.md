@@ -107,8 +107,9 @@ graph TB
     UI --> SIM1
   end
 
-  subgraph Edge["Static Host — Cloudflare Pages"]
+  subgraph Edge["Cloudflare Pages — the only origin the browser ever sees"]
     ASSETS["JS / CSS / SVG sprites / audio"]
+    PROXY["Pages Function<br/>/api/* reverse proxy"]
   end
 
   subgraph Server["apps/api — Fastify on Fly.io"]
@@ -120,12 +121,18 @@ graph TB
 
   DB[("Postgres<br/>Neon")]
 
-  UI -->|HTTPS JSON| AUTH
-  UI -->|HTTPS JSON| GAME
-  Device --> ASSETS
+  UI -->|app shell + assets| ASSETS
+  UI -->|"HTTPS JSON — relative /api/*<br/>session cookie attached"| PROXY
+  PROXY -->|HTTPS JSON| AUTH
+  PROXY -->|HTTPS JSON| GAME
   AUTH --> DB
   GAME --> DB
 ```
+
+The client never addresses the Fly app directly, and that hop through Pages is not
+incidental plumbing: `SameSite=Lax` session cookies (§9.2) are only sent to the origin that
+set them, so a browser talking straight to `*.fly.dev` would be permanently signed out.
+§14 has the full reasoning.
 
 ### Repo layout
 
@@ -1215,8 +1222,14 @@ Vitest, pure functions, no fixtures beyond JSON states. Target **> 90 % branch c
 
 ### 13.2 API
 
-`fastify.inject()` against a real Postgres in Docker (Testcontainers), migrations applied
-per suite. Coverage: auth flows including lockout and revocation, `409` concurrency under
+`fastify.inject()` against a real Postgres in Docker, migrations applied per suite.
+
+> **Build note (Phase 0):** the database comes from `TEST_DATABASE_URL` — the Docker
+> Compose instance locally, a service container in CI — rather than from Testcontainers.
+> Same guarantee, no image pull per suite. Testcontainers remains a drop-in swap if the
+> suite ever needs a database it can throw away mid-run.
+
+Coverage: auth flows including lockout and revocation, `409` concurrency under
 simulated concurrent devices, every action rejection code, gift caps and bonus bean
 eligibility, and authorization (player A cannot read or write player B).
 
@@ -1247,14 +1260,56 @@ most.
 | Component | Host | Notes |
 |---|---|---|
 | `apps/web` | Cloudflare Pages | Static, global CDN, free tier |
+| `/api/*` | Cloudflare Pages Function | Reverse proxy to the API, so the browser sees one origin (below) |
 | `apps/api` | Fly.io | 2 shared-CPU instances, 512 MB, one region near users |
 | Postgres | Neon | Serverless, branching for preview environments, PITR |
 | Cron (Phase 7) | Fly machine | The `notify` worker (§12) |
 | Errors | Sentry | Browser + server, sourcemaps uploaded in CI |
 | Metrics | Fly + pino → Better Stack | Request rate, p95 latency, tick duration, action rejects |
 
+### The browser must see exactly one origin ⚙
+
+Splitting the client onto Pages and the API onto Fly puts them on **different sites**, and
+that is not a routing detail — it breaks authentication outright. The session cookie is
+`Secure; HttpOnly; SameSite=Lax` (§9.2), and `SameSite=Lax` means a browser will not attach
+it to a cross-site `fetch`. Point the client at `https://jelly-sim-api.fly.dev` directly
+and **every request in production arrives anonymous**, on every device, forever. Nothing in
+§9 or §10 works without this section.
+
+The fix is a **Cloudflare Pages Function** — `apps/web/functions/api/[[path]].ts` — that
+forwards `/api/*` to the Fly app:
+
+```
+iPhone ──► https://jelly-sim.pages.dev/api/v1/state     (same origin: cookie attached)
+             │  Pages Function
+             └─► https://jelly-sim-api.fly.dev/api/v1/state
+```
+
+Consequences worth stating, because each is a thing that breaks if someone "simplifies"
+this later:
+
+- **The client uses relative URLs only.** No `VITE_API_URL`, no origin in the bundle. This
+  is also what makes the Vite dev proxy (§10.1) and production behave identically — the
+  dev proxy is the same trick with a different implementation.
+- **`CORS_ORIGINS` on the API is the *Pages* hostname**, not the Fly one. It is the origin
+  the browser saw, and the proxy forwards it so the §9.3 `Origin` check has something
+  truthful to compare against.
+- **CORS is nearly vestigial.** Requests are same-origin from the browser's point of view,
+  so the allowlist exists to fail closed if the proxy is ever bypassed, not to permit
+  ordinary traffic.
+- **The alternative was a custom domain** (`play.example.com` + `api.example.com`, sharing
+  a registrable domain, with `SameSite=Lax` still satisfied). Rejected only because it
+  requires owning a domain before the first deploy; the proxy works on the free
+  `*.pages.dev` hostname. Either is fine. Cookie-bearing traffic reaching the API from a
+  second origin is not.
+
+The one operational cost: the Pages Function is on the request path for every API call, so
+its errors are the client's errors. It stays trivial — set `Origin`, forward, return — and
+`API_ORIGIN` is a Pages environment variable rather than anything compiled in.
+
 **Environments:** `production` · `staging` (Neon branch, real deploy target) ·
-`local` (Docker Compose: Postgres + api + vite dev server).
+`local` (Docker Compose: Postgres + api + vite dev server, with Vite's `/api` proxy
+standing in for the Pages Function).
 
 **Migrations** run as a release command before the new version accepts traffic; they must
 be backward compatible with the previous version for one deploy, since old instances

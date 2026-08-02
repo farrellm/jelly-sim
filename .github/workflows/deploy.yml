@@ -1,0 +1,82 @@
+name: Deploy
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+# Inert until the secrets exist. Every job below is gated on its own credential, so a
+# repository with no Fly token and no Cloudflare token deploys nothing and fails nothing.
+#
+# To turn this on:
+#   FLY_API_TOKEN            fly tokens create deploy
+#   CLOUDFLARE_API_TOKEN     Cloudflare dashboard → API tokens → Pages:Edit
+#   CLOUDFLARE_ACCOUNT_ID    Cloudflare dashboard → Workers & Pages
+# and set DATABASE_URL as a Fly secret (never as a repository secret — it never needs to
+# be in GitHub).
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    if: ${{ github.ref == 'refs/heads/master' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for credentials
+        id: gate
+        run: echo "ready=${{ secrets.FLY_API_TOKEN != '' }}" >> "$GITHUB_OUTPUT"
+
+      - if: steps.gate.outputs.ready != 'true'
+        run: echo "No FLY_API_TOKEN set — skipping the API deploy." >> "$GITHUB_STEP_SUMMARY"
+
+      - if: steps.gate.outputs.ready == 'true'
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - if: steps.gate.outputs.ready == 'true'
+        # fly.toml runs the migration as its release command, so this one line applies the
+        # schema and rolls the instances.
+        run: flyctl deploy --remote-only --config apps/api/fly.toml --dockerfile apps/api/Dockerfile
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+  web:
+    runs-on: ubuntu-latest
+    if: ${{ github.ref == 'refs/heads/master' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for credentials
+        id: gate
+        run: echo "ready=${{ secrets.CLOUDFLARE_API_TOKEN != '' }}" >> "$GITHUB_OUTPUT"
+
+      - if: steps.gate.outputs.ready != 'true'
+        run: echo "No CLOUDFLARE_API_TOKEN set — skipping the web deploy." >> "$GITHUB_STEP_SUMMARY"
+
+      - if: steps.gate.outputs.ready == 'true'
+        uses: pnpm/action-setup@v4
+
+      - if: steps.gate.outputs.ready == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - if: steps.gate.outputs.ready == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - if: steps.gate.outputs.ready == 'true'
+        run: pnpm --filter @jelly/web build
+
+      - if: steps.gate.outputs.ready == 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # From apps/web so the Pages Function in functions/ ships with the static build.
+          # That function is what keeps /api same-origin, and the session cookie with it.
+          workingDirectory: apps/web
+          command: pages deploy dist --project-name=jelly-sim

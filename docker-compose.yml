@@ -1,0 +1,22 @@
+services:
+  db:
+    image: postgres:16
+    container_name: jelly-db
+    environment:
+      POSTGRES_USER: jelly
+      POSTGRES_PASSWORD: jelly
+      POSTGRES_DB: jelly
+    ports:
+      # 5432–5434 are commonly taken by other local projects, so this one sits above them.
+      # DATABASE_URL in .env.example matches.
+      - '5435:5432'
+    volumes:
+      - jelly-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U jelly -d jelly']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  jelly-db-data:

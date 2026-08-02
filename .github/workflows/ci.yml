@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # DESIGN.md §13.4 runs the fastest, highest-signal checks first. Simulation tests come
+  # before integration tests because they are milliseconds and catch the most.
+  check:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: jelly
+          POSTGRES_PASSWORD: jelly
+          POSTGRES_DB: jelly_test
+        ports:
+          - 5435:5432
+        options: >-
+          --health-cmd "pg_isready -U jelly -d jelly_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      DATABASE_URL: postgres://jelly:jelly@localhost:5435/jelly_test
+      TEST_DATABASE_URL: postgres://jelly:jelly@localhost:5435/jelly_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Formatting
+        run: pnpm format:check
+
+      - name: Simulation tests
+        run: pnpm --filter @jelly/sim test
+
+      - name: API integration tests
+        run: pnpm --filter @jelly/api test
+
+      - name: Web build
+        run: pnpm --filter @jelly/web build
+
+  # Playwright (§13.3) joins in Phase 1, when there is a care loop to drive. Driving an
+  # empty island proves nothing the tests above do not.
