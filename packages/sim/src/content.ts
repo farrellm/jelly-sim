@@ -84,7 +84,14 @@ export const BABY_DECAY_MULTIPLIER = 4.0;
 /** Weather that makes being cold worse. */
 export const WET_WEATHERS: readonly Weather[] = ['rain', 'fog'];
 
-/** Rest recovered per hour while asleep (§5.1). */
+/**
+ * Rest recovered per hour while asleep (§5.1).
+ *
+ * ⚙ Net, not a race against decay: sleeping suspends rest decay entirely. Every stage
+ * loses rest at 10/h or more, so a +10/h that had to overcome decay would mean the one
+ * free resolution in the game never resolved anything. A larva sleeps ten hours to refill
+ * from nothing, which is slow — and it is free, and it works while the app is closed.
+ */
 export const SLEEP_REST_PER_HOUR = 10;
 
 /** Mood, which is derived from the other three and from the hole count (§5.1). */

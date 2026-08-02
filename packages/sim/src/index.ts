@@ -20,4 +20,6 @@ export * from './state.js';
 export * from './time.js';
 export { createInitialState, type NewGameOptions } from './initialState.js';
 export { migrate, migrations } from './migrate.js';
+export { advance, type AdvanceResult } from './advance.js';
+export type { SimEvent } from './events.js';
 export { SIM_VERSION } from './version.js';
