@@ -17,25 +17,33 @@ shell. The simulation itself starts in Phase 1 — see [`DESIGN.md` §15](DESIGN
 Needs Node 22+, pnpm, and Docker.
 
 ```bash
-cp .env.example .env
-pnpm install
-pnpm db:up                       # Postgres on localhost:5435
-docker exec jelly-db psql -U jelly -d jelly -c 'CREATE DATABASE jelly_test'
-pnpm db:migrate
-pnpm dev                         # API on :3000, web on http://localhost:5273
+make setup     # .env, dependencies, Postgres, test database, migrations
+make dev       # API on :3000, web on http://localhost:5273
 ```
+
+`make setup` is safe to run again — it will not reinstall unchanged dependencies, recreate
+a database that exists, or overwrite an `.env` you have edited. `make` on its own lists
+every target.
+
+| Target              | What it does                                                      |
+| ------------------- | ----------------------------------------------------------------- |
+| `make dev`          | Both dev servers, hot reload                                      |
+| `make start`        | Build everything and serve it: bundled API plus the built web app |
+| `make check`        | Typecheck, lint, formatting, and every test — what CI runs        |
+| `make test-sim`     | The pure rules only. Milliseconds, no database                    |
+| `make test-api`     | Integration tests against a real Postgres                         |
+| `make db-reset`     | Throw the database away and rebuild it from migrations            |
+| `make psql`         | A shell on the dev database                                       |
+| `make docker-build` | The production API image                                          |
+
+The Makefile only sequences the pnpm scripts underneath (`pnpm dev`, `pnpm test`,
+`pnpm db:migrate`, …), so either entry point works. What it adds is the ordering and the
+one-time setup steps that are easy to miss — notably creating `jelly_test`, without which
+the API suite fails confusingly.
 
 Ports avoid the usual defaults on purpose: 5432–5434 and 5173–5174 are typically already
 taken by other projects. Vite runs with `strictPort`, so a collision is a loud failure
 rather than a silent move to an origin the API does not trust.
-
-## Tests
-
-```bash
-pnpm test          # everything
-pnpm --filter @jelly/sim test    # pure rules, milliseconds
-pnpm --filter @jelly/api test    # integration, needs TEST_DATABASE_URL
-```
 
 The API suite runs against a real Postgres — the schema does real work (citext, CHECK
 constraints, a unique index), and a fake would only assert that the fake agrees with itself.

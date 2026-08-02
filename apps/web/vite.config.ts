@@ -2,6 +2,17 @@ import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
+/**
+ * The client only ever uses relative URLs, so whatever serves it must also answer /api on
+ * the same origin — otherwise the SameSite=Lax session cookie is never sent (DESIGN.md
+ * §14). In production that is a Cloudflare Pages Function; locally it is this proxy, and
+ * both the dev server and `vite preview` need it. Shared rather than copied so the two
+ * cannot drift.
+ */
+const apiProxy = {
+  '/api': { target: 'http://localhost:3000', changeOrigin: false },
+};
+
 export default defineConfig({
   plugins: [
     react(),
@@ -23,11 +34,14 @@ export default defineConfig({
     // rather than a port collision.
     port: 5273,
     strictPort: true,
-    // Same-origin in development so the session cookie behaves exactly as it does in
-    // production, where the API sits behind the same hostname.
-    proxy: {
-      '/api': { target: 'http://localhost:3000', changeOrigin: false },
-    },
+    proxy: apiProxy,
+  },
+  // `make start` serves the built app from here, so it needs the same port and the same
+  // proxy as the dev server. vite preview inherits neither.
+  preview: {
+    port: 5273,
+    strictPort: true,
+    proxy: apiProxy,
   },
   build: {
     target: 'es2022',

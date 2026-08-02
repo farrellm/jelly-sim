@@ -27,18 +27,21 @@ would be easier. If a canon rule is genuinely unbuildable, say so.
 ## Commands
 
 ```bash
-pnpm install
-pnpm db:up          # Postgres in Docker — port 5435, not 5432
-pnpm db:migrate     # apply apps/api/src/db/migrations/*.sql
-pnpm dev            # API on :3000, web on :5273
-pnpm test           # sim unit tests + API integration tests
-pnpm typecheck
-pnpm lint
+make setup          # .env, install, Postgres, test database, migrations. Re-runnable
+make dev            # API on :3000, web on :5273
+make start          # build everything and serve it
+make check          # typecheck + lint + format + tests, in CI's order
+make test-sim       # pure rules only — milliseconds, no database
+make db-reset       # wipe the database and rebuild from migrations
 ```
 
-`cp .env.example .env` first. The API test suite needs `TEST_DATABASE_URL` to point at a
-database it may truncate — `docker exec jelly-db psql -U jelly -d jelly -c 'CREATE DATABASE
-jelly_test'` once.
+`make` with no target lists everything. Each target just sequences the pnpm scripts —
+`pnpm dev`, `pnpm test`, `pnpm db:migrate`, `pnpm -r typecheck` — so either interface
+works, and package scripts remain the place to change _what_ a build does.
+
+The one step worth knowing about: the API suite needs `TEST_DATABASE_URL` pointing at a
+database it may truncate. `make setup` creates `jelly_test`; without it the suite fails
+with an unhelpful error.
 
 **Ports are deliberately non-default.** Postgres 5435 and Vite 5273, because 5432–5434 and
 5173–5174 are usually already taken by something else on a dev machine. Vite uses
