@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { api } from '../api/client.js';
+import { useBarkAudio } from '../audio/useBarkAudio.js';
 import { useGameStore } from './store.js';
 import { useGameTicker } from './ticker.js';
 
@@ -22,6 +23,7 @@ export function useGame() {
   }, [query.data, adopt]);
 
   useGameTicker();
+  useBarkAudio();
 
   const view = useGameStore((s) => s.view);
   return { view, isPending: query.isPending && !view, isError: query.isError };
