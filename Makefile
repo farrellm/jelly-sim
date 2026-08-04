@@ -150,6 +150,11 @@ test-sim: install ## Run the simulation tests only (fast, no database)
 test-api: install test-db ## Run the API integration tests only
 	@pnpm --filter @jelly/api test
 
+.PHONY: test-e2e
+test-e2e: install test-db ## Run the Playwright suite (iPhone 13, starts its own servers)
+	@pnpm --filter @jelly/web exec playwright install --with-deps webkit
+	@pnpm --filter @jelly/web test:e2e
+
 # ---------------------------------------------------------------------------- misc
 
 .PHONY: clean

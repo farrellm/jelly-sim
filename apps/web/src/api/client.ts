@@ -2,6 +2,8 @@ import {
   API_BASE,
   CLIENT_HEADER,
   CLIENT_HEADER_VALUE,
+  type ActionsRequest,
+  type ActionsResponse,
   type ApiErrorBody,
   type ErrorCode,
   type MeResponse,
@@ -16,6 +18,8 @@ export class ApiRequestError extends Error {
   readonly code: ErrorCode;
   readonly status: number;
   readonly details?: { path: string; message: string }[];
+  /** Present on STATE_CONFLICT: the version the server is actually holding (§7). */
+  readonly stateVersion?: number;
 
   constructor(status: number, body: ApiErrorBody) {
     super(body.message);
@@ -23,6 +27,7 @@ export class ApiRequestError extends Error {
     this.status = status;
     this.code = body.error;
     this.details = body.details;
+    this.stateVersion = body.stateVersion;
   }
 }
 
@@ -65,5 +70,8 @@ export const api = {
 
   me: () => request<MeResponse>('/auth/me'),
 
-  state: () => request<StateResponse>('/state'),
+  state: (slot = 0) => request<StateResponse>(`/state?slot=${slot}`),
+
+  actions: (payload: ActionsRequest) =>
+    request<ActionsResponse>('/actions', { method: 'POST', body: JSON.stringify(payload) }),
 };

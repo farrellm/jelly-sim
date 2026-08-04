@@ -4,7 +4,7 @@ Jelly Bean Simulator — a mobile web idle sim. A player registers, is granted a
 land, and raises a Jelly Bean through its life cycle, with everything persisted server-side
 so it survives closing the tab and the two weeks they don't open it.
 
-**Current state: Phase 0 complete. Phase 1 is next.** Keep this line current as phases land.
+**Current state: Phase 1 complete. Phase 2 is next.** Keep this line current as phases land.
 
 ## The documents, and which one wins
 
@@ -32,6 +32,7 @@ make dev            # API on :3000, web on :5273
 make start          # build everything and serve it
 make check          # typecheck + lint + format + tests, in CI's order
 make test-sim       # pure rules only — milliseconds, no database
+make test-e2e       # Playwright, iPhone 13, starts its own servers
 make db-reset       # wipe the database and rebuild from migrations
 ```
 
@@ -42,6 +43,11 @@ works, and package scripts remain the place to change _what_ a build does.
 The one step worth knowing about: the API suite needs `TEST_DATABASE_URL` pointing at a
 database it may truncate. `make setup` creates `jelly_test`; without it the suite fails
 with an unhelpful error.
+
+The end-to-end suite runs against **WebKit**, because an iPhone does. If Playwright cannot
+install its WebKit build on your machine — the Linux dependencies are Ubuntu packages —
+`E2E_BROWSER=chromium pnpm --filter @jelly/web test:e2e` swaps the engine and keeps the
+phone viewport. CI always runs the real one.
 
 **Ports are deliberately non-default.** Postgres 5435 and Vite 5273, because 5432–5434 and
 5173–5174 are usually already taken by something else on a dev machine. Vite uses
@@ -80,7 +86,18 @@ path and no "client wins" path.
 
 **Save migrations are lazy.** `players.sim_version` records which rules version wrote the
 blob; it upgrades when the player next returns. Bump `SIM_VERSION` in the same commit that
-changes the meaning of `PlayerState`.
+changes the meaning of `PlayerState`, add a step to `migrations` in `packages/sim/src/migrate.ts`,
+and capture a real blob at the old version into `packages/sim/test/fixtures/` — a save you
+can regenerate is not the kind a migration has to survive.
+
+**`advance` consumes whole ticks and carries the remainder.** The step is a fixed sim
+minute and the start instant is the save's own `worldMs`, never a parameter. That is what
+makes `advance(advance(s, m), b)` equal `advance(s, b)` for a split point `m` that is not
+on a minute boundary — the property multi-device play depends on, fuzzed in
+`packages/sim/test/advance.test.ts`.
+
+**Nothing kills a Jelly Bean.** Neglect stalls progression; it never ends a save
+(`DESIGN.md` §6.5). Meters bottom out at zero and stay there.
 
 ## The hole mechanic — read this before "fixing" it
 
@@ -90,9 +107,22 @@ stat page, no tutorial line, no achievement, no changelog entry. The hole counte
 neutral number. Dr. Bubblegum never mentions it.
 
 This is canon (`CONCEPT.md` §5, §9) and a deliberate, load-bearing design decision
-(`DESIGN.md` §5.1, §16), not an oversight and not an unfinished feature. Phase 1 lands a
-test asserting the _absence_ of that link, specifically so a well-meaning contributor
-cannot add the missing tooltip.
+(`DESIGN.md` §5.1, §16), not an oversight and not an unfinished feature.
+
+Four tests assert the _absence_ of the link, so a well-meaning contributor cannot add the
+missing tooltip without CI telling them not to:
+
+- `packages/sim/test/apply.test.ts` — no `SimEvent` names a hole; no field of the save is
+  called `moodCeiling` or anything like it; the `INSUFFICIENT_FUNDS` message for space says
+  nothing about digging, which is the moment a player is most likely to be told.
+- `packages/sim/test/project.test.ts` — nothing in the view lets a client read the rule off.
+  A view reporting both mood _and_ its upper bound would let anyone shade the missing points
+  into the meter, which is the tooltip by other means.
+- `apps/api/test/actions.test.ts` — the same, at the wire.
+- `apps/web/e2e/care-loop.spec.ts` — every word on every screen the counter appears on.
+
+`moodCeiling` lives in `packages/sim/src/needs.ts` and is deliberately **not exported from
+the package barrel**. Keep it that way.
 
 If you find yourself about to explain holes to the player: don't.
 
@@ -105,9 +135,38 @@ If you find yourself about to explain holes to the player: don't.
   behaviour or a security property. Do not narrate what the code already says.
 - Balance numbers are data in `packages/sim/src/content.ts`, not branches in logic.
 
-## Phase 0 scope boundary
+## The client, in three files
 
-Phase 0 built the foundations only: auth, sessions, the schema, the client shell, CI, and
-deploy config. There is **no simulation yet** — `advance`, `apply`, and `project` do not
-exist, `GET /state` returns the stored blob without ticking it, and the island is
-deliberately empty. `DESIGN.md` §15 has the phase order.
+`DESIGN.md` §10.3 in code:
+
+- `apps/web/src/game/store.ts` — zustand. `dispatch` runs `apply()` locally so the meter
+  moves under the thumb, then queues the intent. The outbox debounces 400 ms, flushes
+  immediately for anything costing bean bucks, and on a 409 refetches and **replays** rather
+  than dropping the player's taps. `adopt` replaces local state wholesale; it is the only
+  way state enters the store.
+- `apps/web/src/game/ticker.ts` — one local step a second, **stopped entirely when the tab
+  is hidden**. Skipping costs nothing because `advance` is a pure function of elapsed time.
+- `apps/web/src/audio/barks.ts` — one `AudioContext`, unlocked on the first pointerdown
+  because iOS demands a gesture. Bark voices are synthesised from oscillators, so there are
+  no binary assets; real recordings replace `VOICES` and `note()` and nothing else.
+
+## Phase 1 scope boundary
+
+Phase 1 built the care loop: the four needs and their decay tables, `advance`/`apply`/
+`project`, lazy server catch-up, `GET /state` and `POST /actions`, feed / warm / sleep /
+space / dig, barks with audio, and optimistic client prediction.
+
+What is deliberately still absent, so it is not mistaken for a bug:
+
+- **No economy.** Nothing earns jelly coins or bean bucks, so `giveSpace` always refuses.
+  That refusal is the Phase 2 exit criterion, not a defect `[C§11]`.
+- **No farming, crafting, or buildings.** `feed` and `warm` spend an ⚙ _arrival basket_
+  granted in `createInitialState` — three hamburgers and a blanket — which is scaffolding
+  the Arrival quest chain (§5.8) replaces in Phase 5. Delete it then.
+- **No life stages.** `careDays` and `stageEnteredMs` are written but nothing advances a
+  stage, so every save is a larva.
+- **No weather or day/night.** `advance` reads `island.weather` for the cold modifier but
+  never changes it.
+- **No bed required to sleep.** The bed is a Phase 3 building and the gate lands with it.
+
+`DESIGN.md` §15 has the phase order.

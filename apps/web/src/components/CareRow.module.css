@@ -1,0 +1,67 @@
+.row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+/*
+ * One rule for all five buttons, on purpose. Dig has to be indistinguishable from Feed —
+ * same size, same weight, same colour, same satisfying press. Nothing about it may hint
+ * that it is different, because mechanically it is the only one that hurts (§5.1, §16).
+ */
+.button {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 62px; /* comfortably over the 44 pt minimum (§11.1) */
+  padding: 8px 4px;
+  border: 3px solid var(--ink);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.button:disabled {
+  border-color: var(--border);
+  background: var(--surface-sunken);
+  color: var(--muted);
+  opacity: 0.7;
+}
+
+/* :active instead of the tap highlight Safari would otherwise flash (§11.1). */
+.button:not(:disabled):active {
+  transform: translateY(2px);
+  background: var(--surface-sunken);
+}
+
+.icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.label {
+  letter-spacing: 0.02em;
+}
+
+.note {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* Badged when the need it answers is low. Dig never has one — there is no need it answers. */
+.badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: #e0517f;
+}

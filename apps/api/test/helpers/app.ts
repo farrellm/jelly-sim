@@ -44,6 +44,9 @@ export async function createTestApp(envOverrides: NodeJS.ProcessEnv = {}): Promi
     // five would stop the suite in its third test. The limit itself is exercised
     // deliberately in auth.test.ts with an app configured for it.
     REGISTER_LIMIT_PER_HOUR: '10000',
+    // Lets a test say when it is. The suite's whole job around §4.3 is asserting what
+    // fourteen hours away does, and it cannot wait fourteen hours to find out.
+    TEST_CLOCK: '1',
     ...envOverrides,
   });
 
@@ -95,6 +98,34 @@ export async function register(
     }),
   );
   return { res, cookie: sessionCookie(res.headers['set-cookie']) };
+}
+
+/**
+ * `GET /state`, optionally from the future. `atMs` rides in on the test clock header, which
+ * the server only honours outside production and only with TEST_CLOCK set (src/time.ts).
+ */
+export function getState(app: FastifyInstance, cookie: string, atMs?: number, slot = 0) {
+  return app.inject({
+    method: 'GET',
+    url: `/api/v1/state?slot=${slot}`,
+    headers: { cookie, ...(atMs === undefined ? {} : { 'x-test-now': String(atMs) }) },
+  });
+}
+
+export function postActions(
+  app: FastifyInstance,
+  cookie: string,
+  payload: { stateVersion: number; slot?: number; actions: unknown[] },
+  atMs?: number,
+) {
+  return app.inject(
+    asClient({
+      method: 'POST',
+      url: '/api/v1/actions',
+      headers: { cookie, ...(atMs === undefined ? {} : { 'x-test-now': String(atMs) }) },
+      payload,
+    }),
+  );
 }
 
 export function sessionCookie(setCookie: string | string[] | undefined): string {

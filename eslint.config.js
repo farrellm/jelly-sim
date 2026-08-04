@@ -9,6 +9,12 @@ export default tseslint.config(
       '**/coverage/**',
       '**/node_modules/**',
       '**/dev-dist/**',
+      // Vite's pre-bundled dependency cache. Gitignored, but it appears the moment anyone
+      // runs the dev server, and linting a few thousand bundled files fails `make check`
+      // for reasons that have nothing to do with the change under review.
+      '**/.vite/**',
+      '**/playwright-report/**',
+      '**/test-results/**',
       'apps/api/src/db/migrations/**',
     ],
   },

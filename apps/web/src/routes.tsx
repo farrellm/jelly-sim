@@ -1,5 +1,6 @@
 import { createBrowserRouter } from 'react-router-dom';
 import { AuthGate } from './components/AuthGate.js';
+import { Bean } from './screens/Bean.js';
 import { Island } from './screens/Island.js';
 import { Login } from './screens/Login.js';
 import { Placeholder } from './screens/Placeholder.js';
@@ -23,16 +24,8 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
     element: <AuthGate />,
     children: [
       { index: true, element: <Island /> },
-      {
-        path: 'bean',
-        element: (
-          <Placeholder
-            title="Bean"
-            phase="Phase 1"
-            blurb="Needs, mood, and the care actions that resolve them."
-          />
-        ),
-      },
+      // Bean pushes from the island rather than sitting in the tab bar (§10.2).
+      { path: 'bean', element: <Bean /> },
       {
         path: 'farm',
         element: (

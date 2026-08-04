@@ -1,0 +1,68 @@
+.meter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.label {
+  flex: 1;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.value {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A low meter is called out in weight as well as colour (§11.3). */
+.low {
+  color: #b4436c;
+  font-weight: 700;
+}
+
+.track {
+  display: block;
+  overflow: hidden;
+  height: 12px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--surface-sunken);
+}
+
+.fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  /* Meters drift a point at a time under the ticker; the transition hides the stepping. */
+  transition: width 900ms linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fill {
+    transition: none;
+  }
+}
+
+.hunger {
+  background: var(--butter);
+}
+
+.warmth {
+  background: var(--bubblegum);
+}
+
+.rest {
+  background: var(--grape);
+}
+
+.mood {
+  background: var(--mint);
+}

@@ -11,15 +11,25 @@ describe('createInitialState', () => {
     expect(newGame()).toEqual(newGame());
   });
 
-  it('starts a larva with full meters and nothing else', () => {
+  it('starts a larva with full meters, awake, and nothing built', () => {
     const s = newGame();
     expect(s.bean.stage).toBe('larva');
     expect(s.bean.needs).toEqual({ hunger: 100, warmth: 100, rest: 100, mood: 100 });
     expect(s.bean.holes).toBe(0);
-    expect(s.wallet).toEqual({ jellyCoins: 0, beanBucks: 0, bonusBeans: 0 });
+    expect(s.bean.asleepSinceMs).toBeNull();
     expect(s.progress.level).toBe(1);
     expect(s.island.tiles).toEqual([]);
     expect(s.island.plots).toEqual([]);
+  });
+
+  it('grants no currency at all, which is what makes 14 bean bucks a wall', () => {
+    expect(newGame().wallet).toEqual({ jellyCoins: 0, beanBucks: 0, bonusBeans: 0 });
+  });
+
+  it('grants an arrival basket, so the Phase 1 care loop has something to answer with', () => {
+    // ⚙ Scaffolding until the Arrival quest chain (§5.8) lands in Phase 5. If this
+    // assertion is what fails when that arrives, delete it rather than restoring the basket.
+    expect(newGame().inventory).toEqual({ hamburger: 3, blanket: 1 });
   });
 
   it('stamps the sim version and the caller-supplied clock', () => {

@@ -32,6 +32,12 @@ export interface BeanState {
    * and that is deliberate — see CLAUDE.md before "fixing" it.
    */
   holes: number;
+  /**
+   * When the Jelly Bean was put to bed, or null if it is awake. Sleeping restores rest and
+   * halves hunger decay (§5.1); it wakes itself once rest is full. ⚙ Phase 1 needs no bed —
+   * the bed is a Phase 3 building and the gate lands with it.
+   */
+  asleepSinceMs: number | null;
   trade: TradeId | null;
   hobby: HobbyId | null;
   hp: number;

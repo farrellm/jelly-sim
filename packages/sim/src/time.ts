@@ -11,6 +11,20 @@ export const MS_PER_MINUTE = 60_000;
 export const MS_PER_HOUR = 3_600_000;
 export const MS_PER_DAY = 86_400_000;
 
+/**
+ * The simulation's fixed step (§4.3). One sim minute. Fixed steps are what make the result
+ * independent of how an interval gets chopped up, which is what makes multi-device play
+ * agree.
+ */
+export const MS_PER_TICK = MS_PER_MINUTE;
+
+/**
+ * The longest absence worth simulating (§4.3). A player gone a year finds a very hungry
+ * Jelly Bean rather than a request timeout, and an abandoned save costs bounded work when
+ * it eventually wakes up.
+ */
+export const MAX_CATCHUP_MS = 30 * MS_PER_DAY;
+
 /** The number of whole UTC days since the Unix epoch. */
 export function utcDayNumber(ms: number): number {
   return Math.floor(ms / MS_PER_DAY);

@@ -1,3 +1,4 @@
+import { SIM_VERSION } from '@jelly/sim';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   VALID_PASSWORD,
@@ -45,13 +46,20 @@ describe('POST /auth/register', () => {
       { state: Record<string, unknown>; sim_version: number; state_version: number }[]
     >`SELECT state, sim_version, state_version FROM players`;
 
-    expect(row?.sim_version).toBe(1);
+    expect(row?.sim_version).toBe(SIM_VERSION);
     expect(row?.state_version).toBe(1);
     expect(row?.state).toMatchObject({
-      simVersion: 1,
+      simVersion: SIM_VERSION,
       mode: 'regular',
-      bean: { stage: 'larva', holes: 0, needs: { hunger: 100, warmth: 100, rest: 100, mood: 100 } },
+      bean: {
+        stage: 'larva',
+        holes: 0,
+        asleepSinceMs: null,
+        needs: { hunger: 100, warmth: 100, rest: 100, mood: 100 },
+      },
       wallet: { jellyCoins: 0, beanBucks: 0, bonusBeans: 0 },
+      // ⚙ The Phase 1 arrival basket — feed and warm need something to spend.
+      inventory: { hamburger: 3, blanket: 1 },
     });
   });
 

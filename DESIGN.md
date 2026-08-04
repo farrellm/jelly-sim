@@ -192,9 +192,9 @@ merge logic and no "client wins" path.
 ```ts
 // packages/sim/src/index.ts
 
-/** Fast-forward state from `fromMs` to `toMs`. Pure, deterministic, idempotent
- *  under composition: advance(advance(s,a,b),b,c) === advance(s,a,c). */
-export function advance(state: PlayerState, fromMs: number, toMs: number): PlayerState;
+/** Fast-forward state to `toMs`. Pure, deterministic, idempotent under composition:
+ *  advance(advance(s,m),b) === advance(s,b), for any m. */
+export function advance(state: PlayerState, toMs: number): { state: PlayerState; events: SimEvent[] };
 
 /** Attempt one player intent at a given instant. Never throws; returns a tagged result. */
 export function apply(
@@ -207,8 +207,16 @@ export function apply(
 /** Derived, never stored: what the UI reads. */
 export function project(state: PlayerState, atMs: number): ProjectedView;
 
-export const SIM_VERSION = 1;
+export const SIM_VERSION = 2;
 ```
+
+**⚙ Revised in Phase 1: `advance` takes two arguments, not three.** The original signature
+was `advance(state, fromMs, toMs)`. The start instant cannot be a parameter: ticks are
+whole and the sub-minute remainder is carried (§4.3), and honouring a caller-supplied
+`fromMs` is precisely what would discard that remainder and break composition at a split
+point that is not on a minute boundary. The save's own `worldMs` is the only value that can
+be trusted to say what has already been simulated. A parameter that must be ignored to stay
+correct is better not taken.
 
 ### 4.2 Determinism rules ⚙
 
@@ -234,6 +242,13 @@ A returning player who was gone 14 hours needs 840 steps — a fraction of a mil
 Long absences are capped: **any gap over 30 days is clamped to 30 days**, so an
 abandoned save costs bounded work when it wakes up, and a player returning after a year
 finds a very hungry Jelly Bean rather than a timeout.
+
+⚙ **Whole ticks only, and the remainder is carried.** `advance` consumes
+`floor((toMs − worldMs) / 60_000)` steps and leaves the sub-minute remainder unconsumed
+rather than rounding it away. This is what makes the composition property in §13.1 exact
+for an *arbitrary* split point rather than only for ones that happen to land on a minute
+boundary, and multi-device play is exactly the case where the split point is one nobody
+chose. Time never runs backwards: a client whose clock is behind the server's gets a no-op.
 
 Per step, in order:
 
@@ -379,6 +394,26 @@ The 14 bean buck price for space is anchored directly to the canon line — a pl
 14 short is the game's most quoted moment `[C§11]`. **⚙ Space is priced so that a player
 with no bean bucks must play roughly 5–7 mini-games to afford it.** That gap is the
 economy's load-bearing tension; do not tune it away.
+
+**Resolved in Phase 1, where the table above was ambiguous:**
+
+- ⚙ **Sleeping suspends rest decay** rather than racing it. "Rest +10/h while asleep" read
+  as a race resolves nothing — every stage loses rest at 10/h or more, so the one free
+  resolution in the game would have been a slightly slower loss. A larva now sleeps ten
+  hours to refill from empty: slow, free, and it works while the app is closed.
+- ⚙ **`sleep` is a toggle.** Tapping it while the Jelly Bean is asleep wakes it, which
+  keeps the §4.4 action union as written; the Jelly Bean also wakes itself at full rest.
+- ⚙ **The blanket is consumed.** The table prices cold at "gathering time", which only
+  recurs if the blanket does. A permanent one would make warmth free forever after a single
+  afternoon of collecting feathers.
+- ⚙ **Barks fire on the downward crossing** of a threshold (30), not on every tick below
+  it. No throttle state in the save, and a fourteen-hour catch-up produces the handful of
+  barks that happened rather than 840 copies of one complaint. §10.6's
+  one-per-need-per-five-minutes rule stays a playback concern.
+- ⚙ **A new save carries an arrival basket** — three hamburgers and a blanket — because
+  feeding needs an item and warming needs a blanket, and crops, gathering, and crafting are
+  all Phase 2. This is **scaffolding**: the Arrival quest chain (§5.8) hands out a real
+  starter kit in Phase 5 and this goes away when it lands. The wallet stays empty.
 
 **Digging holes** `[C§5, C§9]` — the single most important mechanic to get right:
 
@@ -1235,8 +1270,17 @@ eligibility, and authorization (player A cannot read or write player B).
 
 ### 13.3 End-to-end
 
-Playwright, **iPhone 13 device emulation**, against a seeded database with a controllable
-clock:
+Playwright, **iPhone 13 device emulation** — which means WebKit, since §11.1 is a list of
+Safari behaviours a headless Chrome would not reproduce — against a seeded database with a
+controllable clock.
+
+⚙ **The controllable clock is an `x-test-now` request header** (`apps/api/src/time.ts`),
+honoured only when `TEST_CLOCK` is set *and* `NODE_ENV` is not production. Closing the tab
+and coming back fourteen hours later is a scenario the suite has to be able to state
+rather than wait out, and the alternative — mocking the clock inside the server it is
+meant to drive from the outside — tests something other than the server.
+
+The scenarios:
 
 1. Register → land on the island → resolve the first hunger bark.
 2. Plant parsley → advance the clock 5 min → harvest → currency increases.

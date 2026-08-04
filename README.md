@@ -9,8 +9,10 @@ the tab, changing devices, and the fortnight you forget about it.
 - [`DESIGN.md`](DESIGN.md) — how it gets built
 - [`CLAUDE.md`](CLAUDE.md) — the rules a contributor needs before touching anything
 
-**Status: Phase 0 (Foundations).** Accounts, sessions, persistent saves, and the client
-shell. The simulation itself starts in Phase 1 — see [`DESIGN.md` §15](DESIGN.md#15-build-phases).
+**Status: Phase 1 (The care loop).** The Jelly Bean gets hungry, cold, and sleepy on a real
+clock — including while the app is closed — shouts about it, and you answer. Digging holes
+is free. The economy, farming, and buildings arrive in Phase 2 and 3; see
+[`DESIGN.md` §15](DESIGN.md#15-build-phases).
 
 ## Running it
 
@@ -32,6 +34,7 @@ every target.
 | `make check`        | Typecheck, lint, formatting, and every test — what CI runs        |
 | `make test-sim`     | The pure rules only. Milliseconds, no database                    |
 | `make test-api`     | Integration tests against a real Postgres                         |
+| `make test-e2e`     | Playwright, iPhone 13 emulation, starts its own servers           |
 | `make db-reset`     | Throw the database away and rebuild it from migrations            |
 | `make psql`         | A shell on the dev database                                       |
 | `make docker-build` | The production API image                                          |

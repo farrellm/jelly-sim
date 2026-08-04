@@ -1,19 +1,33 @@
 .island {
   display: flex;
+  flex: 1;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 
+/* The island itself takes the slack, so the care row stays pinned in the thumb zone
+   whatever the phone (§11.2). */
 .plot {
   display: flex;
+  flex: 1;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 12px;
-  padding: 32px 16px;
+  padding: 24px 16px;
   border: 2px dashed var(--border);
   border-radius: var(--radius);
   background: linear-gradient(180deg, #f2fbf7 0%, var(--surface-sunken) 100%);
   text-align: center;
+  /* The island is looked at, not selected (§11.1). */
+  user-select: none;
+}
+
+.beanLink {
+  display: block;
+  padding: 8px;
+  border-radius: var(--radius);
+  text-decoration: none;
 }
 
 .bean {
@@ -26,6 +40,11 @@
   animation: idle 3.2s ease-in-out infinite;
 }
 
+.asleep {
+  animation: breathe 4.5s ease-in-out infinite;
+  opacity: 0.75;
+}
+
 @keyframes idle {
   0%,
   100% {
@@ -36,38 +55,44 @@
   }
 }
 
+@keyframes breathe {
+  0%,
+  100% {
+    transform: rotate(-8deg) scale(1);
+  }
+  50% {
+    transform: rotate(-8deg) scale(1.04);
+  }
+}
+
 .caption {
   margin: 0;
   color: var(--muted);
   font-size: 14px;
 }
 
-.facts {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+.offline {
   margin: 0;
-}
-
-.facts div {
-  padding: 12px 8px;
-  border: 2px solid var(--border);
+  padding: 10px 12px;
   border-radius: var(--radius);
-  background: var(--surface);
+  background: var(--surface-sunken);
+  color: var(--muted);
+  font-size: 13px;
   text-align: center;
 }
 
-.facts dt {
-  color: var(--muted);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.facts dd {
-  margin: 4px 0 0;
-  font-size: 16px;
-  font-weight: 700;
+/* A refusal the player can dismiss by tapping it — "you need 14 bean bucks" is
+   information, not an error, and it should not need a close button to get out of the way. */
+.rejection {
+  min-height: var(--tap-target);
+  padding: 10px 14px;
+  border: 3px solid #e0517f;
+  border-radius: var(--radius);
+  background: #fff0f4;
+  color: #8c2b4c;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
 }
 
 .note {
@@ -75,4 +100,5 @@
   color: var(--muted);
   font-size: 13px;
   line-height: 1.5;
+  text-align: center;
 }

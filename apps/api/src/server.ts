@@ -11,6 +11,7 @@ import type { Db } from './db/client.js';
 import { registerRequireAuth } from './auth/requireAuth.js';
 import { registerErrorHandler } from './plugins/errors.js';
 import { registerCsrfGuard } from './plugins/security.js';
+import { registerActionRoutes } from './routes/actions.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerStateRoutes } from './routes/state.js';
 
@@ -90,8 +91,7 @@ export async function buildServer({ config, db, sql }: ServerDeps): Promise<Fast
 
   await app.register(rateLimit, {
     global: false,
-    // §9.3 caps /actions at 120/min per session. Phase 0 has no /actions yet, so this
-    // registers the plugin and leaves the per-route limits to the routes.
+    // Every limit is declared on the route it protects; this only sets the default key.
     keyGenerator: (request) => request.ip,
   });
 
@@ -112,6 +112,7 @@ export async function buildServer({ config, db, sql }: ServerDeps): Promise<Fast
 
   registerAuthRoutes(app, API_BASE);
   registerStateRoutes(app, API_BASE);
+  registerActionRoutes(app, API_BASE);
 
   return app;
 }

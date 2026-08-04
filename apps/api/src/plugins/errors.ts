@@ -16,6 +16,7 @@ export function registerErrorHandler(app: FastifyInstance): void {
         message: err.message,
         requestId: request.id,
         ...(err.details ? { details: err.details } : {}),
+        ...(err.extra ?? {}),
       });
     }
 
