@@ -1,0 +1,76 @@
+:root {
+  --app-height: 100dvh;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+
+  --tap-min: 44px;
+
+  --bg-sky-top: #cbeafe;
+  --bg-sky-bottom: #fef3d6;
+  --surface-card: rgba(255, 255, 255, 0.88);
+  --text-primary: #2a1f3d;
+  --text-muted: #5f5375;
+  --accent-jelly: #ff5d8f;
+  --accent-mint: #38c997;
+
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Rounded', 'Segoe UI', Roboto, sans-serif;
+  color: var(--text-primary);
+  background: linear-gradient(180deg, var(--bg-sky-top) 0%, var(--bg-sky-bottom) 100%);
+  -webkit-font-smoothing: antialiased;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: var(--app-height);
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app-shell {
+  width: 100%;
+  height: var(--app-height);
+  padding-top: var(--safe-top);
+  padding-bottom: var(--safe-bottom);
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.starter-card {
+  max-width: 340px;
+  margin: 16px;
+  padding: 24px 20px;
+  border-radius: 24px;
+  background: var(--surface-card);
+  box-shadow: 0 12px 32px rgba(42, 31, 61, 0.12);
+  text-align: center;
+}
+
+.starter-card h1 {
+  margin: 0 0 8px;
+  font-size: 1.5rem;
+  color: var(--accent-jelly);
+}
+
+.starter-card p {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
