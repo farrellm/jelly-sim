@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#cbeafe" />
+      <stop offset="100%" stop-color="#fef3d6" />
+    </linearGradient>
+    <linearGradient id="bean" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ff85ad" />
+      <stop offset="60%" stop-color="#ff5d8f" />
+      <stop offset="100%" stop-color="#e03e72" />
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="url(#sky)" />
+  <ellipse cx="32" cy="52" rx="16" ry="3.5" fill="#2a1f3d" opacity="0.14" />
+  <path
+    d="M21 20 C27 12, 41 14, 44 24 C46 31, 49 36, 46 43 C42 50, 31 50, 26 44 C22 39, 14 29, 21 20 Z"
+    fill="url(#bean)"
+  />
+  <ellipse cx="26" cy="22" rx="5" ry="2.6" transform="rotate(-28 26 22)" fill="#ffffff" opacity="0.55" />
+  <circle cx="29" cy="33" r="2.1" fill="#2a1f3d" />
+  <circle cx="38" cy="33" r="2.1" fill="#2a1f3d" />
+  <circle cx="28.3" cy="32.2" r="0.7" fill="#ffffff" />
+  <circle cx="37.3" cy="32.2" r="0.7" fill="#ffffff" />
+  <path d="M31.5 36.2 Q33.5 38.4 35.5 36.2" fill="none" stroke="#2a1f3d" stroke-width="1.6" stroke-linecap="round" />
+</svg>
