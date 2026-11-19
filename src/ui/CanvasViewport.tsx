@@ -1,27 +1,36 @@
 import { useEffect, useRef, useState } from 'react';
+import type { ProjectedBubblePosition } from '../render/BeanView';
 import { SceneManager, type SceneStatus } from '../render/SceneManager';
 
 export interface CanvasViewportProps {
   lowPowerMode?: boolean;
   onPadSelect?: (padName: string | null) => void;
+  onBeanTap?: (beanId: string) => void;
+  onFrameUpdate?: (dtSeconds: number, bubblePosition: ProjectedBubblePosition | null) => void;
   onSceneReady?: (manager: SceneManager | null) => void;
 }
 
 export function CanvasViewport({
   lowPowerMode = false,
   onPadSelect,
+  onBeanTap,
+  onFrameUpdate,
   onSceneReady,
 }: CanvasViewportProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const managerRef = useRef<SceneManager | null>(null);
   const onPadSelectRef = useRef(onPadSelect);
+  const onBeanTapRef = useRef(onBeanTap);
+  const onFrameUpdateRef = useRef(onFrameUpdate);
   const onSceneReadyRef = useRef(onSceneReady);
 
   const [status, setStatus] = useState<SceneStatus>('loading');
   const [statusMessage, setStatusMessage] = useState<string | undefined>(undefined);
 
   onPadSelectRef.current = onPadSelect;
+  onBeanTapRef.current = onBeanTap;
+  onFrameUpdateRef.current = onFrameUpdate;
   onSceneReadyRef.current = onSceneReady;
 
   useEffect(() => {
@@ -43,6 +52,12 @@ export function CanvasViewport({
         },
         onPadSelect: (padName) => {
           onPadSelectRef.current?.(padName);
+        },
+        onBeanTap: (beanId) => {
+          onBeanTapRef.current?.(beanId);
+        },
+        onFrameUpdate: (dtSeconds, bubblePosition) => {
+          onFrameUpdateRef.current?.(dtSeconds, bubblePosition);
         },
       });
       managerRef.current = manager;

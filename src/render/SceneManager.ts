@@ -1,5 +1,12 @@
 import * as THREE from 'three';
+import type { GameMode, JellyBeanEntity } from '../sim/types';
 import { AssetLoader } from './AssetLoader';
+import {
+  BeanView,
+  LARVA_BED_POSITION,
+  LARVA_HOME_POSITION,
+  type ProjectedBubblePosition,
+} from './BeanView';
 import { TouchCameraController, type TapEvent } from './TouchCameraController';
 
 export type SceneStatus = 'loading' | 'ready' | 'context-lost' | 'error';
@@ -11,9 +18,15 @@ export interface SceneManagerOptions {
   lowPowerMode?: boolean;
   onStatusChange?: (status: SceneStatus, message?: string) => void;
   onPadSelect?: (padName: string | null) => void;
+  onBeanTap?: (beanId: string) => void;
+  onFrameUpdate?: (dtSeconds: number, bubblePosition: ProjectedBubblePosition | null) => void;
 }
 
 const STARTER_ISLAND_MODEL = 'assets/models/island_ring0.glb';
+const STARTER_HOUSE_MODEL = 'assets/models/starter_house.glb';
+const BED_PROP_MODEL = 'assets/models/bed_prop.glb';
+const LARVA_MODEL = 'assets/models/jellybean_larva.glb';
+const APPLE_MODEL = 'assets/models/apple.glb';
 const CANONICAL_PLOT_PAD_RE = /^plot_pad_\d+$/;
 
 /**
@@ -147,6 +160,11 @@ export class SceneManager {
   private readonly ownsAssetLoader: boolean;
   private readonly onStatusChange?: (status: SceneStatus, message?: string) => void;
   private readonly onPadSelect?: (padName: string | null) => void;
+  private readonly onBeanTap?: (beanId: string) => void;
+  private readonly onFrameUpdate?: (
+    dtSeconds: number,
+    bubblePosition: ProjectedBubblePosition | null,
+  ) => void;
 
   private readonly renderer: THREE.WebGLRenderer;
   private readonly scene: THREE.Scene;
@@ -159,6 +177,10 @@ export class SceneManager {
   private readonly plotPadMeshes: THREE.Object3D[] = [];
   private readonly selectionRing: THREE.Mesh;
 
+  private beanView: BeanView | null = null;
+  private pendingBeanState: { bean: JellyBeanEntity; mode: GameMode } | null = null;
+  private viewportWidth: number;
+  private viewportHeight: number;
   private oceanUniforms: { uTime: { value: number } } | null = null;
   private lowPowerMode: boolean;
   private resizeObserver: ResizeObserver | null = null;
@@ -178,11 +200,15 @@ export class SceneManager {
     this.lowPowerMode = options.lowPowerMode ?? false;
     this.onStatusChange = options.onStatusChange;
     this.onPadSelect = options.onPadSelect;
+    this.onBeanTap = options.onBeanTap;
+    this.onFrameUpdate = options.onFrameUpdate;
 
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color('#c8ecff');
 
     const { width, height } = this.measureContainer();
+    this.viewportWidth = width;
+    this.viewportHeight = height;
     this.camera = new THREE.PerspectiveCamera(42, width / height, 0.2, 160);
 
     this.renderer = new THREE.WebGLRenderer({
@@ -235,6 +261,23 @@ export class SceneManager {
     return this.cameraController;
   }
 
+  getBeanView(): BeanView | null {
+    return this.beanView;
+  }
+
+  syncBeanState(bean: JellyBeanEntity, mode: GameMode = 'regular'): void {
+    this.pendingBeanState = { bean, mode };
+    this.beanView?.syncState(bean, mode);
+  }
+
+  triggerFeedApple(): void {
+    this.beanView?.triggerFeedApple();
+  }
+
+  triggerHappyBounce(): void {
+    this.beanView?.triggerHappyBounce();
+  }
+
   resetCamera(): void {
     this.cameraController.resetView(false);
   }
@@ -243,6 +286,8 @@ export class SceneManager {
     if (this.lowPowerMode === enabled) return;
     this.lowPowerMode = enabled;
     const { width, height } = this.measureContainer();
+    this.viewportWidth = width;
+    this.viewportHeight = height;
     this.configureRenderer(width, height);
   }
 
@@ -253,6 +298,9 @@ export class SceneManager {
     this.stopLoop();
     this.unbindLifecycleListeners();
     this.cameraController.dispose();
+
+    this.beanView?.dispose();
+    this.beanView = null;
 
     disposeSceneObjects(this.scene);
     if (this.ownsAssetLoader) {
@@ -413,10 +461,28 @@ export class SceneManager {
 
   private async loadStarterIsland(): Promise<void> {
     try {
-      const islandModel = await this.assetLoader.loadModel(STARTER_ISLAND_MODEL, {
-        castShadow: true,
-        receiveShadow: true,
-      });
+      const [islandModel, houseModel, bedModel, larvaModel, appleModel] = await Promise.all([
+        this.assetLoader.loadModel(STARTER_ISLAND_MODEL, {
+          castShadow: true,
+          receiveShadow: true,
+        }),
+        this.assetLoader.loadModel(STARTER_HOUSE_MODEL, {
+          castShadow: true,
+          receiveShadow: true,
+        }),
+        this.assetLoader.loadModel(BED_PROP_MODEL, {
+          castShadow: true,
+          receiveShadow: true,
+        }),
+        this.assetLoader.loadModel(LARVA_MODEL, {
+          castShadow: true,
+          receiveShadow: false,
+        }),
+        this.assetLoader.loadModel(APPLE_MODEL, {
+          castShadow: true,
+          receiveShadow: false,
+        }),
+      ]);
 
       if (this.disposed) {
         return;
@@ -431,6 +497,27 @@ export class SceneManager {
         }
       });
 
+      // Place Starter House cleanly on plot_pad_0 (center pad surface y = 0.026)
+      houseModel.position.set(0, 0.026, 0);
+      this.islandAnchor.add(houseModel);
+
+      // Place Cozy Pastel Bed nestled in the front-left meadow pocket
+      bedModel.position.set(LARVA_BED_POSITION.x, 0.0, LARVA_BED_POSITION.z);
+      bedModel.rotation.y = 0.56;
+      this.islandAnchor.add(bedModel);
+
+      // Mount animated Larva Jelly Bean View
+      this.beanView = new BeanView({
+        larvaModel,
+        appleTemplate: appleModel,
+        homePosition: LARVA_HOME_POSITION,
+        bedPosition: LARVA_BED_POSITION,
+      });
+      if (this.pendingBeanState) {
+        this.beanView.syncState(this.pendingBeanState.bean, this.pendingBeanState.mode);
+      }
+      this.islandAnchor.add(this.beanView.group);
+
       if (!this.contextLost) {
         this.setStatus('ready');
       }
@@ -442,11 +529,26 @@ export class SceneManager {
   }
 
   private handleCanvasTap(tap: TapEvent): void {
-    if (this.disposed || this.contextLost || this.plotPadMeshes.length === 0) {
+    if (this.disposed || this.contextLost) {
       return;
     }
 
     this.raycaster.setFromCamera(new THREE.Vector2(tap.ndcX, tap.ndcY), this.camera);
+
+    // Prioritize tapping directly on the Jelly Bean for instant tactile petting
+    if (this.beanView) {
+      const beanHits = this.raycaster.intersectObjects(this.beanView.getRaycastTargets(), true);
+      if (beanHits.length > 0) {
+        this.beanView.triggerHappyBounce();
+        this.onBeanTap?.(this.beanView.getBeanId());
+        return;
+      }
+    }
+
+    if (this.plotPadMeshes.length === 0) {
+      return;
+    }
+
     const hits = this.raycaster.intersectObjects(this.plotPadMeshes, true);
 
     if (hits.length > 0 && hits[0]) {
@@ -473,6 +575,8 @@ export class SceneManager {
   private readonly handleResize = (): void => {
     if (this.disposed) return;
     const { width, height } = this.measureContainer();
+    this.viewportWidth = width;
+    this.viewportHeight = height;
     const aspect = width / height;
 
     this.camera.aspect = aspect;
@@ -492,6 +596,8 @@ export class SceneManager {
     if (this.disposed) return;
     this.contextLost = false;
     const { width, height } = this.measureContainer();
+    this.viewportWidth = width;
+    this.viewportHeight = height;
     this.configureRenderer(width, height);
     this.setStatus(this.plotPadMeshes.length > 0 ? 'ready' : 'loading');
     this.startLoop();
@@ -572,6 +678,18 @@ export class SceneManager {
       const pulse = 1 + 0.06 * Math.sin(this.elapsedSeconds * 4.5);
       this.selectionRing.scale.set(pulse, 1, pulse);
     }
+
+    let bubblePosition: ProjectedBubblePosition | null = null;
+    if (this.beanView) {
+      this.beanView.update(dt);
+      bubblePosition = this.beanView.projectSpeechBubble(
+        this.camera,
+        this.viewportWidth,
+        this.viewportHeight,
+      );
+    }
+
+    this.onFrameUpdate?.(dt, bubblePosition);
 
     this.renderer.render(this.scene, this.camera);
     this.rafId = window.requestAnimationFrame(this.tickFrame);
