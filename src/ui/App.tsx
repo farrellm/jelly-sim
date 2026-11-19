@@ -5,12 +5,16 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
+import { AudioEngine } from '../audio/AudioEngine';
+import type { MusicMood } from '../audio/MusicSequencer';
+import { mapSpeechCueToBark } from '../audio/VoiceSynth';
 import type { ProjectedBubblePosition } from '../render/BeanView';
 import type { SceneManager } from '../render/SceneManager';
 import { getActiveBean } from '../sim/engine';
 import { getBeanSpeechCue } from '../sim/needs';
 import { GameStore } from '../sim/store';
 import type { BeanMoodCueType, OfflineCatchUpSummary, SimEvent } from '../sim/types';
+import { AudioToggle } from './AudioToggle';
 import { BottomDock, type DockTab } from './BottomDock';
 import { CanvasViewport } from './CanvasViewport';
 import { OnboardingModal } from './OnboardingModal';
@@ -78,10 +82,12 @@ export function App() {
   const [rewardToast, setRewardToast] = useState<RewardToast | null>(null);
 
   const sceneManagerRef = useRef<SceneManager | null>(null);
+  const audioEngineRef = useRef<AudioEngine | null>(null);
   const speechBubbleRef = useRef<HTMLDivElement | null>(null);
   const reactionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toastSeqRef = useRef(0);
+  const lastSpokenCueRef = useRef<string | null>(null);
 
   const activeBean = getActiveBean(state);
 
@@ -115,6 +121,12 @@ export function App() {
   );
 
   useEffect(() => {
+    const audio = new AudioEngine({
+      enabled: store.getState().settings.soundEnabled,
+    });
+    audio.attachLifecycle();
+    audioEngineRef.current = audio;
+
     const detachLifecycle = store.attachLifecycle({ intervalMs: 15000 });
     void store.hydrateFromBackup();
 
@@ -124,46 +136,72 @@ export function App() {
           case 'ONBOARDING_COMPLETED':
             sceneManagerRef.current?.triggerHappyBounce();
             showReaction(`Hi ${event.parentTitle}!`, 'happy', 2600);
+            void audio.unlock().then((ok) => {
+              if (ok) {
+                audio.playSfx('wake');
+                audio.playVoiceBark('jelly_bean');
+              }
+            });
             break;
           case 'FED_APPLE':
             sceneManagerRef.current?.triggerFeedApple();
             showReaction('Yum! Crunchy apple!', 'happy', 2000);
             showToast(`+${event.xpGained} XP • +${event.coinsGained} JC`);
+            audio.playSfx('feed');
+            audio.playVoiceBark('happy');
             break;
           case 'BOUGHT_APPLES':
             showToast(`Bought ${event.quantity} Apple (-${event.coinsSpent} JC)`);
+            audio.playSfx('coin');
             break;
           case 'SLEEP_CHANGED':
             if (event.isSleeping) {
               showReaction('Zzz... sleep, sleep...', 'sleep', 2400);
+              audio.playSfx('sleep');
+              audio.playVoiceBark('sleepy');
             } else {
               sceneManagerRef.current?.triggerHappyBounce();
               showReaction('Good morning!', 'happy', 1800);
+              audio.playSfx('wake');
+              audio.playVoiceBark('jelly_bean');
             }
             break;
           case 'WARMED_BY_HEARTH':
             sceneManagerRef.current?.triggerHappyBounce();
             showReaction('So toasty & warm!', 'happy', 2000);
             showToast(`+${event.xpGained} XP`);
+            audio.playSfx('warm');
+            audio.playVoiceBark('happy');
             break;
           case 'BLANKET_EQUIPPED':
             sceneManagerRef.current?.triggerHappyBounce();
             showReaction('Cozy blanket!', 'happy', 2200);
+            audio.playSfx('warm');
+            audio.playVoiceBark('happy');
             break;
           case 'SPONGE_BATH_DONE':
             sceneManagerRef.current?.triggerHappyBounce();
             showReaction('Squeaky clean!', 'happy', 1900);
             showToast(`+${event.xpGained} XP • +${event.coinsGained} JC`);
+            audio.playSfx('wash');
+            audio.playVoiceBark('happy');
             break;
           case 'BEAN_PETTED':
             sceneManagerRef.current?.triggerHappyBounce();
             showReaction('Hehe! Happy bean!', 'happy', 1800);
             showToast(`+${event.xpGained} XP • +${event.coinsGained} JC`);
+            audio.playSfx('pet');
+            audio.playVoiceBark('happy');
             break;
           case 'LEVEL_UP':
             sceneManagerRef.current?.triggerHappyBounce();
             showReaction(`Level ${event.newLevel}! Yay!`, 'levelup', 2800);
             showToast(`Level ${event.newLevel} Reached!`, 'levelup', 2800);
+            audio.playSfx('level_up');
+            audio.playVoiceBark('level_up');
+            break;
+          case 'ACTION_REJECTED':
+            audio.playSfx('error');
             break;
           default:
             break;
@@ -174,6 +212,8 @@ export function App() {
     return () => {
       detachLifecycle();
       unsubscribeEvents();
+      audio.dispose();
+      audioEngineRef.current = null;
       if (reactionTimerRef.current !== null) {
         clearTimeout(reactionTimerRef.current);
       }
@@ -182,6 +222,20 @@ export function App() {
       }
     };
   }, [store, showReaction, showToast]);
+
+  // Keep AudioEngine mute state and music mood synchronized with simulation state
+  useEffect(() => {
+    audioEngineRef.current?.setEnabled(state.settings.soundEnabled);
+  }, [state.settings.soundEnabled]);
+
+  useEffect(() => {
+    const mood: MusicMood = activeBean.isSleeping
+      ? 'sleepy'
+      : state.weather.current === 'cozy_rain'
+        ? 'cozy_rain'
+        : 'cozy';
+    audioEngineRef.current?.setMusicMood(mood);
+  }, [activeBean.isSleeping, state.weather.current]);
 
   // Keep 3D Larva BeanView synced with simulation state
   useEffect(() => {
@@ -217,7 +271,38 @@ export function App() {
   );
 
   const handleResetView = useCallback(() => {
+    audioEngineRef.current?.playSfx('tap');
     sceneManagerRef.current?.resetCamera();
+  }, []);
+
+  const handleToggleSound = useCallback(() => {
+    const nextEnabled = !store.getState().settings.soundEnabled;
+    store.dispatch({
+      type: 'UPDATE_SETTINGS',
+      settings: { soundEnabled: nextEnabled },
+    });
+    const audio = audioEngineRef.current;
+    if (!audio) return;
+    audio.setEnabled(nextEnabled);
+    if (nextEnabled) {
+      void audio.unlock().then((ok) => {
+        if (ok) {
+          audio.playSfx('tap');
+        }
+      });
+    }
+  }, [store]);
+
+  const handleSelectTab = useCallback((tab: DockTab) => {
+    audioEngineRef.current?.playSfx('tap');
+    setActiveTab(tab);
+  }, []);
+
+  const handlePadSelect = useCallback((pad: string | null) => {
+    if (pad) {
+      audioEngineRef.current?.playSfx('tap');
+    }
+    setSelectedPad(pad);
   }, []);
 
   const handleCompleteOnboarding = useCallback(
@@ -267,6 +352,28 @@ export function App() {
     ? getBeanSpeechCue(activeBean, state.parentTitle, state.mode)
     : null;
 
+  // Sync passive Jelly Bean vocal barks to urgent speech bubbles ("Hungry!", "Cold!", "Sleep, sleep!")
+  useEffect(() => {
+    if (!state.onboarded || !needSpeechCue) {
+      lastSpokenCueRef.current = null;
+      return;
+    }
+
+    const cueSignature = `${needSpeechCue.cue}:${needSpeechCue.message}`;
+    if (cueSignature === lastSpokenCueRef.current) {
+      return;
+    }
+    lastSpokenCueRef.current = cueSignature;
+
+    const bark = mapSpeechCueToBark(needSpeechCue.cue, activeBean.isSleeping);
+    if (bark) {
+      audioEngineRef.current?.playVoiceBark(bark, {
+        passive: true,
+        cueKey: needSpeechCue.cue,
+      });
+    }
+  }, [state.onboarded, needSpeechCue, activeBean.isSleeping]);
+
   const speechText = state.onboarded
     ? reaction?.message ??
       needSpeechCue?.message ??
@@ -283,7 +390,7 @@ export function App() {
     <div className="app-shell">
       <CanvasViewport
         lowPowerMode={state.settings.lowPowerMode}
-        onPadSelect={setSelectedPad}
+        onPadSelect={handlePadSelect}
         onBeanTap={handleBeanTap}
         onFrameUpdate={handleFrameUpdate}
         onSceneReady={handleSceneReady}
@@ -310,8 +417,19 @@ export function App() {
         <TopHud
           bean={activeBean}
           jellyCoins={state.currencies.jellyCoins}
+          soundEnabled={state.settings.soundEnabled}
+          onToggleSound={handleToggleSound}
           onResetView={handleResetView}
         />
+      )}
+
+      {!state.onboarded && (
+        <div className="onboarding-audio-bar">
+          <AudioToggle
+            enabled={state.settings.soundEnabled}
+            onToggle={handleToggleSound}
+          />
+        </div>
       )}
 
       {state.onboarded && offlineSummary && (
@@ -364,7 +482,7 @@ export function App() {
           apples={state.inventory.apples}
           blankets={state.inventory.blankets}
           jellyCoins={state.currencies.jellyCoins}
-          onSelectTab={setActiveTab}
+          onSelectTab={handleSelectTab}
           onFeedApple={handleFeedApple}
           onBuyApple={handleBuyApple}
           onToggleSleep={handleToggleSleep}

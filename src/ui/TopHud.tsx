@@ -1,11 +1,14 @@
 import { LOW_NEED_THRESHOLD, xpForLevel } from '../sim/constants';
 import type { JellyBeanEntity, LifeStage } from '../sim/types';
 import { resolveAssetUrl } from '../utils/assets';
+import { AudioToggle } from './AudioToggle';
 
 export interface TopHudProps {
   bean: JellyBeanEntity;
   jellyCoins: number;
   onResetView: () => void;
+  soundEnabled?: boolean;
+  onToggleSound?: () => void;
 }
 
 const STAGE_LABELS: Record<LifeStage, string> = {
@@ -30,7 +33,13 @@ function getNeedTone(value: number): 'healthy' | 'warn' | 'urgent' {
   return 'healthy';
 }
 
-export function TopHud({ bean, jellyCoins, onResetView }: TopHudProps) {
+export function TopHud({
+  bean,
+  jellyCoins,
+  onResetView,
+  soundEnabled = true,
+  onToggleSound,
+}: TopHudProps) {
   const xpTarget = xpForLevel(bean.level);
   const xpPercent = Math.min(100, Math.max(0, Math.round((bean.xp / xpTarget) * 100)));
 
@@ -89,6 +98,9 @@ export function TopHud({ bean, jellyCoins, onResetView }: TopHudProps) {
             <span className="coin-dot" aria-hidden="true" />
             <span>{jellyCoins}</span>
           </div>
+          {onToggleSound && (
+            <AudioToggle enabled={soundEnabled} onToggle={onToggleSound} />
+          )}
           <button
             type="button"
             className="hud-pill hud-icon-button"

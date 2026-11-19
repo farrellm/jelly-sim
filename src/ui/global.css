@@ -341,6 +341,27 @@ textarea {
   transform: scale(0.93);
 }
 
+.audio-toggle-icon {
+  display: block;
+  flex-shrink: 0;
+}
+
+.audio-toggle--on {
+  color: var(--berry-pink-deep);
+}
+
+.audio-toggle--muted {
+  color: var(--ink-secondary);
+  opacity: 0.78;
+}
+
+.onboarding-audio-bar {
+  position: fixed;
+  top: calc(10px + var(--sat));
+  right: calc(12px + var(--sar));
+  z-index: 35;
+}
+
 /* 5-Need Gauge Strip */
 .needs-strip {
   display: grid;
