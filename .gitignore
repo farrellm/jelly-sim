@@ -5,3 +5,7 @@ coverage/
 .vite/
 *.local
 .DS_Store
+__pycache__/
+*.pyc
+*.blend1
+assets-src/thumbnails/
