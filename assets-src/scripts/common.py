@@ -108,8 +108,22 @@ PALETTE: dict[str, tuple[str, float, float, float, float, float]] = {
     "jelly_gold": ("#FFD15C", 0.20, 0.85, 0.08, 0.15, 0.70),
     "cheek_blush": ("#FF8FAB", 0.35, 0.35, 0.18, 0.0, 0.50),
     "eye_licorice": ("#1D1426", 0.10, 0.95, 0.05, 0.0, 0.80),
+    "brow_licorice": ("#3A243B", 0.32, 0.25, 0.20, 0.0, 0.45),
     "eye_highlight": ("#FFFFFF", 0.08, 0.50, 0.10, 0.0, 0.50),
     "icon_sky_backdrop": ("#8FD9FB", 0.90, 0.0, 0.5, 0.0, 0.10),
+    # Cottage architecture, food & cozy care props
+    "cottage_wall": ("#FFF3E0", 0.72, 0.0, 0.30, 0.0, 0.32),
+    "cottage_roof": ("#FF7DA8", 0.62, 0.08, 0.28, 0.0, 0.40),
+    "cottage_roof_trim": ("#FF9EC0", 0.60, 0.08, 0.28, 0.0, 0.40),
+    "cottage_door": ("#B96F44", 0.66, 0.06, 0.28, 0.0, 0.38),
+    "cottage_chimney": ("#D4886A", 0.76, 0.0, 0.32, 0.0, 0.30),
+    "window_glow": ("#FFE89E", 0.32, 0.20, 0.20, 0.0, 0.45),
+    "brass_gold": ("#FFD15C", 0.28, 0.35, 0.15, 0.45, 0.65),
+    "apple_red": ("#FF3355", 0.15, 0.92, 0.06, 0.0, 0.70),
+    "apple_leaf": ("#59D979", 0.52, 0.18, 0.22, 0.0, 0.42),
+    "bed_quilt": ("#7EC8FF", 0.76, 0.0, 0.35, 0.0, 0.25),
+    "bed_quilt_cuff": ("#FFE4F0", 0.72, 0.0, 0.35, 0.0, 0.28),
+    "bed_pillow": ("#FFF0A8", 0.78, 0.0, 0.35, 0.0, 0.25),
 }
 
 
