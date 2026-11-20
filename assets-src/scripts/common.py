@@ -145,6 +145,25 @@ PALETTE: dict[str, tuple[str, float, float, float, float, float]] = {
     "buck_emerald": ("#23B26D", 0.48, 0.18, 0.22, 0.0, 0.42),
     "buck_mint": ("#92F2B9", 0.54, 0.10, 0.25, 0.0, 0.38),
     "jelly_lavender": ("#B388FF", 0.18, 0.90, 0.07, 0.0, 0.65),
+    # Milestone 3: Garden Plots, Crops, Apple Tree, Feathers & Knitted Blanket
+    "soil_loam": ("#7A4E34", 0.86, 0.0, 0.35, 0.0, 0.20),
+    "soil_furrow": ("#5F3A24", 0.88, 0.0, 0.35, 0.0, 0.18),
+    "parsley_dark": ("#28A659", 0.56, 0.12, 0.25, 0.0, 0.40),
+    "parsley_bright": ("#5CE382", 0.50, 0.16, 0.22, 0.0, 0.44),
+    "vine_green": ("#3BB662", 0.58, 0.10, 0.26, 0.0, 0.38),
+    "tomato_glossy": ("#FF3648", 0.15, 0.92, 0.06, 0.0, 0.70),
+    "candycane_red": ("#FF2E54", 0.14, 0.94, 0.05, 0.0, 0.72),
+    "candycane_white": ("#FFFDF9", 0.16, 0.90, 0.06, 0.0, 0.68),
+    "bark_warm": ("#9C5E3A", 0.80, 0.0, 0.32, 0.0, 0.26),
+    "canopy_rich": ("#46C470", 0.66, 0.04, 0.30, 0.0, 0.35),
+    "canopy_light": ("#74E28E", 0.62, 0.06, 0.28, 0.0, 0.38),
+    "feather_cream": ("#FFF8EE", 0.60, 0.10, 0.28, 0.0, 0.38),
+    "feather_peach": ("#FF9EC0", 0.56, 0.14, 0.26, 0.0, 0.42),
+    "feather_sky": ("#9BE0FF", 0.56, 0.14, 0.26, 0.0, 0.42),
+    "yarn_lavender": ("#C59BFF", 0.84, 0.0, 0.35, 0.0, 0.22),
+    "yarn_peach": ("#FF96B6", 0.84, 0.0, 0.35, 0.0, 0.22),
+    "yarn_butter": ("#FFE79B", 0.84, 0.0, 0.35, 0.0, 0.22),
+    "yarn_mint": ("#8EE8B8", 0.84, 0.0, 0.35, 0.0, 0.22),
 }
 
 
