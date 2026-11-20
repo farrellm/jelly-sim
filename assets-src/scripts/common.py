@@ -124,6 +124,27 @@ PALETTE: dict[str, tuple[str, float, float, float, float, float]] = {
     "bed_quilt": ("#7EC8FF", 0.76, 0.0, 0.35, 0.0, 0.25),
     "bed_quilt_cuff": ("#FFE4F0", 0.72, 0.0, 0.35, 0.0, 0.28),
     "bed_pillow": ("#FFF0A8", 0.78, 0.0, 0.35, 0.0, 0.25),
+    # Milestone 2: Dr. Bubblegum, Toilet, Hamburger Stand & Currencies
+    "dr_bubblegum_shell": ("#FF6CB3", 0.14, 0.96, 0.05, 0.0, 0.72),
+    "labcoat_white": ("#FBFBFF", 0.58, 0.05, 0.25, 0.0, 0.35),
+    "prof_plum": ("#3E2859", 0.52, 0.12, 0.25, 0.0, 0.42),
+    "prof_bowtie": ("#FF4478", 0.38, 0.25, 0.20, 0.0, 0.50),
+    "prof_vest": ("#7AD4C4", 0.65, 0.0, 0.30, 0.0, 0.35),
+    "toilet_aqua": ("#88D9F2", 0.66, 0.06, 0.28, 0.0, 0.38),
+    "toilet_roof": ("#B794F6", 0.60, 0.08, 0.26, 0.0, 0.40),
+    "toilet_door": ("#63BEE0", 0.62, 0.08, 0.26, 0.0, 0.40),
+    "porcelain_white": ("#FFFFFF", 0.16, 0.85, 0.08, 0.0, 0.65),
+    "burger_awning_red": ("#FF4D6D", 0.54, 0.12, 0.25, 0.0, 0.42),
+    "burger_bun": ("#E89F4A", 0.52, 0.12, 0.25, 0.0, 0.42),
+    "burger_patty": ("#6B3B26", 0.78, 0.02, 0.32, 0.0, 0.28),
+    "burger_cheese": ("#FFC93C", 0.36, 0.28, 0.18, 0.0, 0.48),
+    "burger_lettuce": ("#5BD96A", 0.56, 0.10, 0.25, 0.0, 0.38),
+    "burger_tomato": ("#FF3B4E", 0.22, 0.72, 0.10, 0.0, 0.60),
+    "coin_gold": ("#FFCA3A", 0.20, 0.65, 0.08, 0.55, 0.75),
+    "coin_gold_rim": ("#F5A623", 0.24, 0.55, 0.10, 0.50, 0.70),
+    "buck_emerald": ("#23B26D", 0.48, 0.18, 0.22, 0.0, 0.42),
+    "buck_mint": ("#92F2B9", 0.54, 0.10, 0.25, 0.0, 0.38),
+    "jelly_lavender": ("#B388FF", 0.18, 0.90, 0.07, 0.0, 0.65),
 }
 
 
@@ -628,6 +649,8 @@ def render_icon_png(
     ortho: bool = True,
     margin: float = 1.24,
     samples: int = 24,
+    center_override: tuple[float, float, float] | None = None,
+    extent_override: float | None = None,
 ) -> dict[str, object]:
     """Render target objects cleanly to a square studio PNG icon.
 
@@ -666,9 +689,13 @@ def render_icon_png(
     try:
         bpy.context.view_layer.update()
         mins, maxs = get_combined_bounds(objects)
-        center = (mins + maxs) * 0.5
+        center = Vector(center_override) if center_override is not None else (mins + maxs) * 0.5
         extents = maxs - mins
-        max_dim = max(extents.x, extents.y, extents.z, 0.1)
+        max_dim = (
+            extent_override
+            if extent_override is not None
+            else max(extents.x, extents.y, extents.z, 0.1)
+        )
 
         az = math.radians(cam_azimuth_deg)
         el = math.radians(cam_elevation_deg)
