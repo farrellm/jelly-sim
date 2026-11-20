@@ -9,13 +9,29 @@ import { AudioEngine } from '../audio/AudioEngine';
 import type { MusicMood } from '../audio/MusicSequencer';
 import { mapSpeechCueToBark } from '../audio/VoiceSynth';
 import type { ProjectedBubblePosition } from '../render/BeanView';
+import type { ProjectedFloatingPopup } from '../render/IslandView';
 import type { SceneManager } from '../render/SceneManager';
 import { getActiveBean } from '../sim/engine';
 import { getBeanSpeechCue } from '../sim/needs';
 import { GameStore } from '../sim/store';
-import type { BeanMoodCueType, OfflineCatchUpSummary, SimEvent } from '../sim/types';
+import type {
+  BeanMoodCueType,
+  BuildingType,
+  OfflineCatchUpSummary,
+  SimEvent,
+} from '../sim/types';
+import {
+  canAfford,
+  getBuildingDefinition,
+  getEmptyBuildTileIds,
+  getHamburgerStandRatePerMin,
+  getHouseUpgradeTier,
+  hasBuilding,
+} from '../sim/village';
+import { resolveAssetUrl } from '../utils/assets';
 import { AudioToggle } from './AudioToggle';
 import { BottomDock, type DockTab } from './BottomDock';
+import { BuildSheet } from './BuildSheet';
 import { CanvasViewport } from './CanvasViewport';
 import { OnboardingModal } from './OnboardingModal';
 import { TopHud } from './TopHud';
@@ -32,10 +48,10 @@ interface RewardToast {
   accent: 'default' | 'levelup';
 }
 
-function formatPadLabel(padName: string): string {
-  if (padName === 'plot_pad_0') {
-    return 'Starter House Plot';
-  }
+function formatPadLabel(padName: string, building: BuildingType | null): string {
+  if (building === 'starter_house') return 'Starter House';
+  if (building === 'toilet') return 'Toilet';
+  if (building === 'hamburger_stand') return 'Hamburger Stand';
   const match = /^plot_pad_(\d+)$/.exec(padName);
   return match ? `Plot Pad ${match[1]}` : padName;
 }
@@ -78,18 +94,27 @@ export function App() {
 
   const [activeTab, setActiveTab] = useState<DockTab>('care');
   const [selectedPad, setSelectedPad] = useState<string | null>(null);
+  const [placementBuilding, setPlacementBuilding] = useState<BuildingType | null>(null);
   const [reaction, setReaction] = useState<ReactionBubble | null>(null);
   const [rewardToast, setRewardToast] = useState<RewardToast | null>(null);
 
   const sceneManagerRef = useRef<SceneManager | null>(null);
   const audioEngineRef = useRef<AudioEngine | null>(null);
   const speechBubbleRef = useRef<HTMLDivElement | null>(null);
+  const floatingPopupLayerRef = useRef<HTMLDivElement | null>(null);
+  const popupNodesRef = useRef<Map<number, HTMLDivElement>>(new Map());
+  const placementBuildingRef = useRef<BuildingType | null>(null);
+  const selectedPadRef = useRef<string | null>(null);
   const reactionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toastSeqRef = useRef(0);
   const lastSpokenCueRef = useRef<string | null>(null);
 
+  placementBuildingRef.current = placementBuilding;
+  selectedPadRef.current = selectedPad;
+
   const activeBean = getActiveBean(state);
+  const hasToiletBuilt = hasBuilding(state, 'toilet');
 
   const showReaction = useCallback(
     (message: string, tone: ReactionBubble['tone'], durationMs = 2200) => {
@@ -186,6 +211,63 @@ export function App() {
             audio.playSfx('wash');
             audio.playVoiceBark('happy');
             break;
+          case 'TOILET_USED':
+            sceneManagerRef.current?.triggerHappyBounce();
+            sceneManagerRef.current?.triggerToiletFlush(event.tileId);
+            sceneManagerRef.current?.spawnTilePopup(
+              event.tileId,
+              `+${event.coinsGained} JC`,
+              'coin',
+            );
+            showReaction('All clean! Flush!', 'happy', 2100);
+            showToast(`100% Clean! +${event.xpGained} XP • +${event.coinsGained} JC`);
+            audio.playSfx('flush');
+            audio.playVoiceBark('happy');
+            break;
+          case 'BUILDING_PLACED': {
+            const def = getBuildingDefinition(event.buildingType);
+            const name = def?.name ?? event.buildingType;
+            sceneManagerRef.current?.triggerHappyBounce();
+            sceneManagerRef.current?.spawnTilePopup(
+              event.tileId,
+              `+${event.xpGained} XP`,
+              'xp',
+            );
+            showReaction(`Yay! New ${name}!`, 'happy', 2400);
+            showToast(`Built ${name}! (+${event.xpGained} XP)`);
+            audio.playSfx('wake');
+            audio.playVoiceBark('happy');
+            break;
+          }
+          case 'HOUSE_UPGRADED':
+            sceneManagerRef.current?.triggerHappyBounce();
+            sceneManagerRef.current?.spawnTilePopup(
+              event.tileId,
+              `Tier ${event.newTier}!`,
+              'xp',
+            );
+            showReaction(`Cozy Tier ${event.newTier} House!`, 'levelup', 2400);
+            showToast(`House upgraded to Tier ${event.newTier}!`, 'levelup', 2400);
+            audio.playSfx('level_up');
+            audio.playVoiceBark('happy');
+            break;
+          case 'STAND_INCOME_COLLECTED':
+            sceneManagerRef.current?.spawnTilePopup(
+              event.tileId,
+              `+${event.coinsCollected} JC`,
+              'coin',
+            );
+            showToast(`Collected +${event.coinsCollected} JC from Burger Stand!`);
+            audio.playSfx('coin');
+            break;
+          case 'BURGER_EATEN':
+            sceneManagerRef.current?.triggerHappyBounce();
+            sceneManagerRef.current?.spawnTilePopup(event.tileId, 'Yum! +80 Food', 'burger');
+            showReaction('Mmm! Best burger ever!', 'happy', 2200);
+            showToast(`Free Burger! +${event.xpGained} XP`);
+            audio.playSfx('feed');
+            audio.playVoiceBark('happy');
+            break;
           case 'BEAN_PETTED':
             sceneManagerRef.current?.triggerHappyBounce();
             showReaction('Hehe! Happy bean!', 'happy', 1800);
@@ -201,6 +283,7 @@ export function App() {
             audio.playVoiceBark('level_up');
             break;
           case 'ACTION_REJECTED':
+            showToast(event.reason);
             audio.playSfx('error');
             break;
           default:
@@ -237,10 +320,18 @@ export function App() {
     audioEngineRef.current?.setMusicMood(mood);
   }, [activeBean.isSleeping, state.weather.current]);
 
-  // Keep 3D Larva BeanView synced with simulation state
+  // Keep 3D Larva BeanView and IslandView synced with simulation state
   useEffect(() => {
     sceneManagerRef.current?.syncBeanState(activeBean, state.mode);
   }, [activeBean, state.mode]);
+
+  useEffect(() => {
+    sceneManagerRef.current?.syncIslandState(state);
+  }, [state.island]);
+
+  useEffect(() => {
+    sceneManagerRef.current?.setPlacementMode(placementBuilding);
+  }, [placementBuilding]);
 
   const handleSceneReady = useCallback(
     (manager: SceneManager | null) => {
@@ -248,23 +339,58 @@ export function App() {
       if (manager) {
         const current = store.getState();
         manager.syncBeanState(getActiveBean(current), current.mode);
+        manager.syncIslandState(current);
+        manager.setPlacementMode(placementBuildingRef.current);
       }
     },
     [store],
   );
 
   const handleFrameUpdate = useCallback(
-    (dtSeconds: number, bubblePosition: ProjectedBubblePosition | null) => {
+    (
+      dtSeconds: number,
+      bubblePosition: ProjectedBubblePosition | null,
+      floatingPopups: readonly ProjectedFloatingPopup[] = [],
+    ) => {
       store.step(dtSeconds);
 
       const el = speechBubbleRef.current;
-      if (!el) return;
+      if (el) {
+        if (bubblePosition && bubblePosition.visible) {
+          el.style.transform = `translate3d(${bubblePosition.x.toFixed(1)}px, ${bubblePosition.y.toFixed(1)}px, 0) translate(-50%, -100%)`;
+          el.style.visibility = 'visible';
+        } else {
+          el.style.visibility = 'hidden';
+        }
+      }
 
-      if (bubblePosition && bubblePosition.visible) {
-        el.style.transform = `translate3d(${bubblePosition.x.toFixed(1)}px, ${bubblePosition.y.toFixed(1)}px, 0) translate(-50%, -100%)`;
-        el.style.visibility = 'visible';
-      } else {
-        el.style.visibility = 'hidden';
+      // Sync projected floating +JC popups imperatively at 60 FPS (zero React re-renders per frame)
+      const layer = floatingPopupLayerRef.current;
+      if (layer) {
+        const activeIds = new Set<number>();
+        const nodes = popupNodesRef.current;
+
+        for (const popup of floatingPopups) {
+          if (!popup.visible) continue;
+          activeIds.add(popup.id);
+          let node = nodes.get(popup.id);
+          if (!node) {
+            node = document.createElement('div');
+            node.className = `floating-popup floating-popup--${popup.accent}`;
+            node.textContent = popup.text;
+            layer.appendChild(node);
+            nodes.set(popup.id, node);
+          }
+          node.style.transform = `translate3d(${popup.x.toFixed(1)}px, ${popup.y.toFixed(1)}px, 0) translate(-50%, -50%) scale(${popup.scale.toFixed(3)})`;
+          node.style.opacity = popup.opacity.toFixed(3);
+        }
+
+        for (const [id, node] of nodes.entries()) {
+          if (!activeIds.has(id)) {
+            node.remove();
+            nodes.delete(id);
+          }
+        }
       }
     },
     [store],
@@ -296,14 +422,83 @@ export function App() {
   const handleSelectTab = useCallback((tab: DockTab) => {
     audioEngineRef.current?.playSfx('tap');
     setActiveTab(tab);
+    if (tab !== 'build') {
+      setPlacementBuilding(null);
+    }
   }, []);
 
-  const handlePadSelect = useCallback((pad: string | null) => {
-    if (pad) {
-      audioEngineRef.current?.playSfx('tap');
-    }
-    setSelectedPad(pad);
+  const handlePadSelect = useCallback(
+    (pad: string | null) => {
+      const pendingBuild = placementBuildingRef.current;
+
+      if (pendingBuild) {
+        if (!pad) return;
+        const currentState = store.getState();
+        const emptyIds = getEmptyBuildTileIds(currentState);
+        if (emptyIds.includes(pad)) {
+          store.dispatch({
+            type: 'PLACE_BUILDING',
+            buildingType: pendingBuild,
+            tileId: pad,
+          });
+          setPlacementBuilding(null);
+          setSelectedPad(pad);
+          setActiveTab('care');
+        } else {
+          audioEngineRef.current?.playSfx('error');
+          showToast('Tap a glowing green empty plot pad!');
+        }
+        return;
+      }
+
+      if (pad) {
+        const prevSelected = selectedPadRef.current;
+        const tile = store.getState().island.tiles[pad];
+        // Quick second tap on a Hamburger Stand with ready coins collects immediately!
+        if (
+          prevSelected === pad &&
+          tile?.building === 'hamburger_stand' &&
+          Math.floor(tile.pendingCoins ?? 0) >= 1
+        ) {
+          store.dispatch({ type: 'COLLECT_STAND_INCOME', tileId: pad });
+          return;
+        }
+        audioEngineRef.current?.playSfx('tap');
+      }
+      setSelectedPad(pad);
+    },
+    [store, showToast],
+  );
+
+  const handleStartPlacement = useCallback((buildingType: BuildingType) => {
+    audioEngineRef.current?.playSfx('tap');
+    setPlacementBuilding(buildingType);
   }, []);
+
+  const handleBuildOnSelectedPad = useCallback(
+    (buildingType: BuildingType, tileId: string) => {
+      const res = store.dispatch({
+        type: 'PLACE_BUILDING',
+        buildingType,
+        tileId,
+      });
+      if (res.events.some((e) => e.type === 'BUILDING_PLACED')) {
+        setPlacementBuilding(null);
+        setSelectedPad(tileId);
+        setActiveTab('care');
+      }
+    },
+    [store],
+  );
+
+  const handleCancelPlacement = useCallback(() => {
+    audioEngineRef.current?.playSfx('tap');
+    setPlacementBuilding(null);
+  }, []);
+
+  const handleUpgradeHouse = useCallback(() => {
+    store.dispatch({ type: 'UPGRADE_HOUSE' });
+  }, [store]);
 
   const handleCompleteOnboarding = useCallback(
     (beanName: string, parentTitle: string) => {
@@ -336,6 +531,24 @@ export function App() {
     store.dispatch({ type: 'SPONGE_BATH' });
   }, [store]);
 
+  const handleUseToilet = useCallback(() => {
+    store.dispatch({ type: 'USE_TOILET' });
+  }, [store]);
+
+  const handleCollectStand = useCallback(
+    (tileId: string) => {
+      store.dispatch({ type: 'COLLECT_STAND_INCOME', tileId });
+    },
+    [store],
+  );
+
+  const handleGrabFreeBurger = useCallback(
+    (tileId: string) => {
+      store.dispatch({ type: 'GRAB_FREE_BURGER', tileId });
+    },
+    [store],
+  );
+
   const handlePet = useCallback(() => {
     store.dispatch({ type: 'PET_BEAN' });
   }, [store]);
@@ -347,6 +560,12 @@ export function App() {
     },
     [store],
   );
+
+  const handleDismissSelectedPad = useCallback(() => {
+    audioEngineRef.current?.playSfx('tap');
+    setSelectedPad(null);
+    sceneManagerRef.current?.setSelectedPad(null);
+  }, []);
 
   const needSpeechCue = state.onboarded
     ? getBeanSpeechCue(activeBean, state.parentTitle, state.mode)
@@ -386,6 +605,24 @@ export function App() {
     activeBean.isSleeping,
   );
 
+  const selectedTile = selectedPad ? state.island.tiles[selectedPad] ?? null : null;
+  const standRatePerMin = getHamburgerStandRatePerMin(state);
+  const showTileCard =
+    state.onboarded && selectedTile !== null && activeTab !== 'build' && !placementBuilding;
+
+  const buildSheetNode = (
+    <BuildSheet
+      state={state}
+      selectedPad={selectedPad}
+      placementBuilding={placementBuilding}
+      onStartPlacement={handleStartPlacement}
+      onBuildOnSelectedPad={handleBuildOnSelectedPad}
+      onCancelPlacement={handleCancelPlacement}
+      onUpgradeHouse={handleUpgradeHouse}
+      onClose={() => handleSelectTab('care')}
+    />
+  );
+
   return (
     <div className="app-shell">
       <CanvasViewport
@@ -396,7 +633,7 @@ export function App() {
         onSceneReady={handleSceneReady}
       />
 
-      {/* 3D-to-2D projected speech bubble tracking the Larva at 60 FPS */}
+      {/* 3D-to-2D projected speech bubble & floating +JC popups */}
       <div className="bubble-layer" aria-hidden={!speechText}>
         <div
           ref={speechBubbleRef}
@@ -411,12 +648,14 @@ export function App() {
             </>
           )}
         </div>
+        <div ref={floatingPopupLayerRef} className="floating-popup-layer" aria-hidden="true" />
       </div>
 
       {state.onboarded && (
         <TopHud
           bean={activeBean}
           jellyCoins={state.currencies.jellyCoins}
+          beanBucks={state.currencies.beanBucks}
           soundEnabled={state.settings.soundEnabled}
           onToggleSound={handleToggleSound}
           onResetView={handleResetView}
@@ -440,6 +679,9 @@ export function App() {
               <span>
                 You were away {formatAwayDuration(offlineSummary.cappedSeconds)}
                 {offlineSummary.sleptRestored ? ' — your Jelly Bean had a cozy rest!' : '.'}
+                {offlineSummary.coinsEarned > 0
+                  ? ` Hamburger Stand earned +${offlineSummary.coinsEarned} JC ready to collect!`
+                  : ''}
               </span>
             </div>
             <button
@@ -469,9 +711,136 @@ export function App() {
         </div>
       )}
 
-      {state.onboarded && selectedPad && !rewardToast && (
-        <div className="selection-banner" role="status" aria-live="polite">
-          <span className="hud-pill selection-pill">{formatPadLabel(selectedPad)}</span>
+      {showTileCard && selectedTile && (
+        <div className="tile-card-wrap" role="region" aria-label="Selected plot actions">
+          <div className="tile-action-card">
+            <div className="tile-action-header">
+              <div className="tile-action-title-group">
+                {selectedTile.building === 'toilet' && (
+                  <img
+                    src={resolveAssetUrl('assets/icons/toilet.png')}
+                    alt=""
+                    aria-hidden="true"
+                    className="tile-action-icon"
+                    width={34}
+                    height={34}
+                  />
+                )}
+                {selectedTile.building === 'hamburger_stand' && (
+                  <img
+                    src={resolveAssetUrl('assets/icons/hamburger_stand.png')}
+                    alt=""
+                    aria-hidden="true"
+                    className="tile-action-icon"
+                    width={34}
+                    height={34}
+                  />
+                )}
+                <div>
+                  <strong className="tile-action-title">
+                    {formatPadLabel(selectedTile.id, selectedTile.building)}
+                  </strong>
+                  <div className="tile-action-sub">
+                    {selectedTile.building === 'hamburger_stand' &&
+                      `${Math.round(standRatePerMin)} JC/min • ${Math.floor(selectedTile.pendingCoins ?? 0)} JC ready`}
+                    {selectedTile.building === 'toilet' && 'Restores 100% Hygiene + 5 JC bonus'}
+                    {selectedTile.building === 'starter_house' &&
+                      `Tier ${selectedTile.buildingTier} / 4 Cozy Home`}
+                    {selectedTile.building === null && 'Open Ring 0 build plot'}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="tile-action-close"
+                onClick={handleDismissSelectedPad}
+                aria-label="Close plot card"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="tile-action-buttons">
+              {selectedTile.building === 'hamburger_stand' && (
+                <>
+                  <button
+                    type="button"
+                    className="tile-cta-btn tile-cta-btn--gold"
+                    disabled={Math.floor(selectedTile.pendingCoins ?? 0) < 1}
+                    onClick={() => handleCollectStand(selectedTile.id)}
+                  >
+                    <img
+                      src={resolveAssetUrl('assets/icons/jelly_coin.png')}
+                      alt=""
+                      aria-hidden="true"
+                      className="cost-mini-icon"
+                      width={16}
+                      height={16}
+                    />
+                    <span>
+                      {Math.floor(selectedTile.pendingCoins ?? 0) >= 1
+                        ? `Collect +${Math.floor(selectedTile.pendingCoins ?? 0)} JC`
+                        : 'Earning JC...'}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="tile-cta-btn tile-cta-btn--pink"
+                    disabled={(selectedTile.burgerCooldownSec ?? 0) > 0}
+                    onClick={() => handleGrabFreeBurger(selectedTile.id)}
+                  >
+                    <span>
+                      {(selectedTile.burgerCooldownSec ?? 0) > 0
+                        ? `Burger (${Math.ceil(selectedTile.burgerCooldownSec ?? 0)}s)`
+                        : '🍔 Free Burger'}
+                    </span>
+                  </button>
+                </>
+              )}
+
+              {selectedTile.building === 'toilet' && (
+                <button
+                  type="button"
+                  className="tile-cta-btn tile-cta-btn--pink"
+                  onClick={handleUseToilet}
+                >
+                  <span>Use Toilet (+100% Clean, +5 JC)</span>
+                </button>
+              )}
+
+              {selectedTile.building === 'starter_house' && (() => {
+                const nextTier = getHouseUpgradeTier(selectedTile.buildingTier);
+                if (!nextTier) {
+                  return (
+                    <span className="tile-max-note">Fully upgraded Gingerbread Manor!</span>
+                  );
+                }
+                const affordable = canAfford(state, nextTier.costJellyCoins, nextTier.costBeanBucks);
+                return (
+                  <button
+                    type="button"
+                    className="tile-cta-btn tile-cta-btn--gold"
+                    disabled={!affordable}
+                    onClick={handleUpgradeHouse}
+                  >
+                    <span>
+                      Upgrade to {nextTier.name} ({nextTier.costJellyCoins} JC)
+                    </span>
+                  </button>
+                );
+              })()}
+
+              {selectedTile.building === null && (
+                <button
+                  type="button"
+                  className="tile-cta-btn tile-cta-btn--mint"
+                  onClick={() => handleSelectTab('build')}
+                >
+                  <span>Build on {formatPadLabel(selectedTile.id, null)}</span>
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -482,12 +851,15 @@ export function App() {
           apples={state.inventory.apples}
           blankets={state.inventory.blankets}
           jellyCoins={state.currencies.jellyCoins}
+          hasToilet={hasToiletBuilt}
+          buildSheet={buildSheetNode}
           onSelectTab={handleSelectTab}
           onFeedApple={handleFeedApple}
           onBuyApple={handleBuyApple}
           onToggleSleep={handleToggleSleep}
           onWarmUp={handleWarmUp}
           onWash={handleWash}
+          onUseToilet={handleUseToilet}
           onPet={handlePet}
         />
       )}

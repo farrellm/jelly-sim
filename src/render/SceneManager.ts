@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { GameMode, JellyBeanEntity } from '../sim/types';
+import type { BuildingType, GameMode, GameState, JellyBeanEntity } from '../sim/types';
 import { AssetLoader } from './AssetLoader';
 import {
   BeanView,
@@ -7,7 +7,16 @@ import {
   LARVA_HOME_POSITION,
   type ProjectedBubblePosition,
 } from './BeanView';
+import {
+  findCanonicalPlotPad,
+  IslandView,
+  resolveTileIdFromHit,
+  type FloatingPopupAccent,
+  type ProjectedFloatingPopup,
+} from './IslandView';
 import { TouchCameraController, type TapEvent } from './TouchCameraController';
+
+export { findCanonicalPlotPad };
 
 export type SceneStatus = 'loading' | 'ready' | 'context-lost' | 'error';
 
@@ -19,7 +28,11 @@ export interface SceneManagerOptions {
   onStatusChange?: (status: SceneStatus, message?: string) => void;
   onPadSelect?: (padName: string | null) => void;
   onBeanTap?: (beanId: string) => void;
-  onFrameUpdate?: (dtSeconds: number, bubblePosition: ProjectedBubblePosition | null) => void;
+  onFrameUpdate?: (
+    dtSeconds: number,
+    bubblePosition: ProjectedBubblePosition | null,
+    floatingPopups?: readonly ProjectedFloatingPopup[],
+  ) => void;
 }
 
 const STARTER_ISLAND_MODEL = 'assets/models/island_ring0.glb';
@@ -27,23 +40,6 @@ const STARTER_HOUSE_MODEL = 'assets/models/starter_house.glb';
 const BED_PROP_MODEL = 'assets/models/bed_prop.glb';
 const LARVA_MODEL = 'assets/models/jellybean_larva.glb';
 const APPLE_MODEL = 'assets/models/apple.glb';
-const CANONICAL_PLOT_PAD_RE = /^plot_pad_\d+$/;
-
-/**
- * Walks up a glTF scene graph from a hit mesh (which GLTFLoader may split into
- * multi-material primitive children like `plot_pad_0_1`) to its canonical
- * `plot_pad_<n>` node.
- */
-export function findCanonicalPlotPad(object: THREE.Object3D | null): THREE.Object3D | null {
-  let current: THREE.Object3D | null = object;
-  while (current) {
-    if (CANONICAL_PLOT_PAD_RE.test(current.name)) {
-      return current;
-    }
-    current = current.parent;
-  }
-  return null;
-}
 
 const SKY_VERTEX_SHADER = /* glsl */ `
   varying vec3 vWorldDirection;
@@ -164,6 +160,7 @@ export class SceneManager {
   private readonly onFrameUpdate?: (
     dtSeconds: number,
     bubblePosition: ProjectedBubblePosition | null,
+    floatingPopups?: readonly ProjectedFloatingPopup[],
   ) => void;
 
   private readonly renderer: THREE.WebGLRenderer;
@@ -174,11 +171,12 @@ export class SceneManager {
 
   private readonly islandAnchor = new THREE.Group();
   private readonly cloudGroup = new THREE.Group();
-  private readonly plotPadMeshes: THREE.Object3D[] = [];
-  private readonly selectionRing: THREE.Mesh;
 
+  private islandView: IslandView | null = null;
   private beanView: BeanView | null = null;
   private pendingBeanState: { bean: JellyBeanEntity; mode: GameMode } | null = null;
+  private pendingIslandState: Pick<GameState, 'island'> | null = null;
+  private pendingPlacementMode: BuildingType | null = null;
   private viewportWidth: number;
   private viewportHeight: number;
   private oceanUniforms: { uTime: { value: number } } | null = null;
@@ -226,9 +224,6 @@ export class SceneManager {
     this.islandAnchor.name = 'IslandAnchor';
     this.scene.add(this.islandAnchor);
 
-    this.selectionRing = this.createSelectionRing();
-    this.islandAnchor.add(this.selectionRing);
-
     this.cameraController = new TouchCameraController(this.camera, this.canvas, {
       target: new THREE.Vector3(0, -0.45, 0),
       framingRadius: 5.45,
@@ -265,9 +260,36 @@ export class SceneManager {
     return this.beanView;
   }
 
+  getIslandView(): IslandView | null {
+    return this.islandView;
+  }
+
   syncBeanState(bean: JellyBeanEntity, mode: GameMode = 'regular'): void {
     this.pendingBeanState = { bean, mode };
     this.beanView?.syncState(bean, mode);
+  }
+
+  syncIslandState(state: Pick<GameState, 'island'>): void {
+    this.pendingIslandState = state;
+    this.islandView?.syncFromState(state);
+  }
+
+  setPlacementMode(buildingType: BuildingType | null): void {
+    this.pendingPlacementMode = buildingType;
+    this.islandView?.setPlacementMode(buildingType);
+  }
+
+  setSelectedPad(padName: string | null): void {
+    this.selectedPadName = padName;
+    this.islandView?.setSelectedTile(padName);
+  }
+
+  spawnTilePopup(tileId: string, text: string, accent: FloatingPopupAccent = 'coin'): void {
+    this.islandView?.spawnFloatingPopup(tileId, text, accent);
+  }
+
+  triggerToiletFlush(tileId?: string): void {
+    this.islandView?.triggerToiletFlush(tileId);
   }
 
   triggerFeedApple(): void {
@@ -301,6 +323,9 @@ export class SceneManager {
 
     this.beanView?.dispose();
     this.beanView = null;
+
+    this.islandView?.dispose();
+    this.islandView = null;
 
     disposeSceneObjects(this.scene);
     if (this.ownsAssetLoader) {
@@ -442,23 +467,6 @@ export class SceneManager {
     this.scene.add(this.cloudGroup);
   }
 
-  private createSelectionRing(): THREE.Mesh {
-    const ringGeo = new THREE.RingGeometry(0.76, 0.94, 28);
-    ringGeo.rotateX(-Math.PI / 2);
-    const ringMat = new THREE.MeshBasicMaterial({
-      color: '#ff6b9d',
-      transparent: true,
-      opacity: 0.85,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-    });
-    const ring = new THREE.Mesh(ringGeo, ringMat);
-    ring.name = 'PlotSelectionRing';
-    ring.visible = false;
-    ring.position.y = 0.055;
-    return ring;
-  }
-
   private async loadStarterIsland(): Promise<void> {
     try {
       const [islandModel, houseModel, bedModel, larvaModel, appleModel] = await Promise.all([
@@ -488,18 +496,23 @@ export class SceneManager {
         return;
       }
 
-      this.islandAnchor.add(islandModel);
-      this.plotPadMeshes.length = 0;
-
-      islandModel.traverse((child) => {
-        if (CANONICAL_PLOT_PAD_RE.test(child.name)) {
-          this.plotPadMeshes.push(child);
-        }
+      // Mount IslandView managing raycastable plot pads, buildings, ghost highlights & popups
+      this.islandView = new IslandView({
+        islandModel,
+        assetLoader: this.assetLoader,
+        initialHouseModel: houseModel,
       });
+      this.islandAnchor.add(this.islandView.group);
 
-      // Place Starter House cleanly on plot_pad_0 (center pad surface y = 0.026)
-      houseModel.position.set(0, 0.026, 0);
-      this.islandAnchor.add(houseModel);
+      if (this.pendingIslandState) {
+        this.islandView.syncFromState(this.pendingIslandState);
+      }
+      if (this.pendingPlacementMode) {
+        this.islandView.setPlacementMode(this.pendingPlacementMode);
+      }
+      if (this.selectedPadName) {
+        this.islandView.setSelectedTile(this.selectedPadName);
+      }
 
       // Place Cozy Pastel Bed nestled in the front-left meadow pocket
       bedModel.position.set(LARVA_BED_POSITION.x, 0.0, LARVA_BED_POSITION.z);
@@ -536,7 +549,8 @@ export class SceneManager {
     this.raycaster.setFromCamera(new THREE.Vector2(tap.ndcX, tap.ndcY), this.camera);
 
     // Prioritize tapping directly on the Jelly Bean for instant tactile petting
-    if (this.beanView) {
+    // (unless the player is actively choosing a pad to place a building!)
+    if (this.beanView && !this.pendingPlacementMode) {
       const beanHits = this.raycaster.intersectObjects(this.beanView.getRaycastTargets(), true);
       if (beanHits.length > 0) {
         this.beanView.triggerHappyBounce();
@@ -545,29 +559,30 @@ export class SceneManager {
       }
     }
 
-    if (this.plotPadMeshes.length === 0) {
+    if (!this.islandView) {
       return;
     }
 
-    const hits = this.raycaster.intersectObjects(this.plotPadMeshes, true);
+    const targets = this.islandView.getRaycastTargets();
+    if (targets.length === 0) {
+      return;
+    }
+
+    const hits = this.raycaster.intersectObjects(targets, true);
 
     if (hits.length > 0 && hits[0]) {
-      const padObj = findCanonicalPlotPad(hits[0].object);
-      if (padObj) {
-        this.selectedPadName = padObj.name;
-        const padWorldPos = new THREE.Vector3();
-        padObj.getWorldPosition(padWorldPos);
-        const padLocalPos = this.islandAnchor.worldToLocal(padWorldPos);
-        this.selectionRing.position.set(padLocalPos.x, padLocalPos.y + 0.055, padLocalPos.z);
-        this.selectionRing.visible = true;
-        this.onPadSelect?.(padObj.name);
+      const tileId = resolveTileIdFromHit(hits[0].object);
+      if (tileId) {
+        this.selectedPadName = tileId;
+        this.islandView.setSelectedTile(tileId);
+        this.onPadSelect?.(tileId);
         return;
       }
     }
 
     if (this.selectedPadName !== null) {
       this.selectedPadName = null;
-      this.selectionRing.visible = false;
+      this.islandView.setSelectedTile(null);
       this.onPadSelect?.(null);
     }
   }
@@ -599,7 +614,7 @@ export class SceneManager {
     this.viewportWidth = width;
     this.viewportHeight = height;
     this.configureRenderer(width, height);
-    this.setStatus(this.plotPadMeshes.length > 0 ? 'ready' : 'loading');
+    this.setStatus(this.islandView ? 'ready' : 'loading');
     this.startLoop();
   };
 
@@ -674,9 +689,14 @@ export class SceneManager {
       this.oceanUniforms.uTime.value = this.elapsedSeconds;
     }
 
-    if (this.selectionRing.visible) {
-      const pulse = 1 + 0.06 * Math.sin(this.elapsedSeconds * 4.5);
-      this.selectionRing.scale.set(pulse, 1, pulse);
+    let floatingPopups: readonly ProjectedFloatingPopup[] = [];
+    if (this.islandView) {
+      this.islandView.update(dt);
+      floatingPopups = this.islandView.projectFloatingPopups(
+        this.camera,
+        this.viewportWidth,
+        this.viewportHeight,
+      );
     }
 
     let bubblePosition: ProjectedBubblePosition | null = null;
@@ -689,7 +709,7 @@ export class SceneManager {
       );
     }
 
-    this.onFrameUpdate?.(dt, bubblePosition);
+    this.onFrameUpdate?.(dt, bubblePosition, floatingPopups);
 
     this.renderer.render(this.scene, this.camera);
     this.rafId = window.requestAnimationFrame(this.tickFrame);

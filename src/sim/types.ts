@@ -56,6 +56,10 @@ export interface TileState {
   building: BuildingType | null;
   buildingTier: number;
   crop: CropState | null;
+  /** Accumulated passive Jelly Coins waiting to be collected (e.g. Hamburger Stand). */
+  pendingCoins?: number;
+  /** Remaining cooldown seconds before the next free burger can be grabbed. */
+  burgerCooldownSec?: number;
 }
 
 export interface SwordItem {
@@ -142,7 +146,12 @@ export type SimAction =
   | { type: 'WARM_BY_HEARTH'; beanId?: string }
   | { type: 'PET_BEAN'; beanId?: string }
   | { type: 'SELECT_BEAN'; beanId: string }
-  | { type: 'UPDATE_SETTINGS'; settings: Partial<GameSettings> };
+  | { type: 'UPDATE_SETTINGS'; settings: Partial<GameSettings> }
+  | { type: 'PLACE_BUILDING'; buildingType: BuildingType; tileId: string }
+  | { type: 'UPGRADE_HOUSE'; tileId?: string }
+  | { type: 'USE_TOILET'; beanId?: string }
+  | { type: 'COLLECT_STAND_INCOME'; tileId?: string }
+  | { type: 'GRAB_FREE_BURGER'; tileId?: string; beanId?: string };
 
 export type SimEvent =
   | { type: 'ONBOARDING_COMPLETED'; beanName: string; parentTitle: string }
@@ -153,6 +162,24 @@ export type SimEvent =
   | { type: 'BLANKET_EQUIPPED'; beanId: string; durationSeconds: number }
   | { type: 'WARMED_BY_HEARTH'; beanId: string; xpGained: number }
   | { type: 'BEAN_PETTED'; beanId: string; xpGained: number; coinsGained: number }
+  | {
+      type: 'BUILDING_PLACED';
+      buildingType: BuildingType;
+      tileId: string;
+      coinsSpent: number;
+      bucksSpent: number;
+      xpGained: number;
+    }
+  | {
+      type: 'HOUSE_UPGRADED';
+      tileId: string;
+      newTier: number;
+      coinsSpent: number;
+      xpGained: number;
+    }
+  | { type: 'TOILET_USED'; beanId: string; tileId: string; xpGained: number; coinsGained: number }
+  | { type: 'STAND_INCOME_COLLECTED'; tileId: string; coinsCollected: number }
+  | { type: 'BURGER_EATEN'; beanId: string; tileId: string; xpGained: number }
   | { type: 'LEVEL_UP'; beanId: string; newLevel: number; newStage: LifeStage }
   | { type: 'ACTION_REJECTED'; actionType: SimAction['type']; reason: string };
 

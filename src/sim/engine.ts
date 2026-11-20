@@ -12,6 +12,15 @@ import {
 } from './constants';
 import { clamp, getNeedFloor, tickBeanNeeds } from './needs';
 import { normalizeSeed } from './rng';
+import {
+  collectStandIncome,
+  getHouseHearthWarmthBonus,
+  grabFreeBurger,
+  placeBuilding,
+  tickVillageBuildings,
+  upgradeHouse,
+  useToilet,
+} from './village';
 import type {
   DispatchResult,
   GameMode,
@@ -476,11 +485,16 @@ export function dispatch(state: GameState, action: SimAction, nowMs?: number): D
         return { state, events };
       }
 
+      const hearthBonus = getHouseHearthWarmthBonus(state);
       const warmedBean: JellyBeanEntity = {
         ...target,
         needs: {
           ...target.needs,
-          warmth: clamp(target.needs.warmth + CARE_ACTIONS.hearthWarmthRestore, floor, NEED_MAX),
+          warmth: clamp(
+            target.needs.warmth + CARE_ACTIONS.hearthWarmthRestore + hearthBonus,
+            floor,
+            NEED_MAX,
+          ),
         },
       };
 
@@ -592,6 +606,26 @@ export function dispatch(state: GameState, action: SimAction, nowMs?: number): D
         events,
       };
     }
+
+    case 'PLACE_BUILDING': {
+      return placeBuilding(state, action.buildingType, action.tileId, nowMs);
+    }
+
+    case 'UPGRADE_HOUSE': {
+      return upgradeHouse(state, action.tileId, nowMs);
+    }
+
+    case 'USE_TOILET': {
+      return useToilet(state, action.beanId, nowMs);
+    }
+
+    case 'COLLECT_STAND_INCOME': {
+      return collectStandIncome(state, action.tileId, nowMs);
+    }
+
+    case 'GRAB_FREE_BURGER': {
+      return grabFreeBurger(state, action.tileId, action.beanId, nowMs);
+    }
   }
 }
 
@@ -613,6 +647,8 @@ export function tick(state: GameState, dtSeconds: number, nowMs?: number): GameS
     }),
   );
 
+  const villageStep = tickVillageBuildings(state, dtSeconds);
+
   const nextLastTickMs =
     nowMs !== undefined ? Math.max(state.lastTickMs, nowMs) : state.lastTickMs + Math.round(dtSeconds * 1000);
 
@@ -620,6 +656,12 @@ export function tick(state: GameState, dtSeconds: number, nowMs?: number): GameS
     ...state,
     lastTickMs: nextLastTickMs,
     sessionPlaySeconds: state.sessionPlaySeconds + dtSeconds,
+    island: villageStep.changed
+      ? {
+          ...state.island,
+          tiles: villageStep.tiles,
+        }
+      : state.island,
     beans: nextBeans,
   };
 }
@@ -653,15 +695,34 @@ export function applyOfflineCatchUp(state: GameState, nowMs: number): OfflineCat
 
   let beans = state.beans.map((b) => ({ ...b, needs: { ...b.needs } }));
   const inventory = { ...state.inventory };
+  let tiles = state.island.tiles;
   const floor = getNeedFloor(state.mode);
 
   let sleptRestored = false;
   let autoCookedMeals = 0;
+  let totalCoinsAccrued = 0;
 
   let remainingSec = cappedSeconds;
   while (remainingSec > 0) {
     const stepSec = Math.min(OFFLINE_STEP_SECONDS, remainingSec);
     remainingSec -= stepSec;
+
+    // Accrue passive Hamburger Stand Jelly Coins & tick burger cooldowns offline
+    const villageStep = tickVillageBuildings(
+      {
+        ...state,
+        inventory,
+        island: {
+          ...state.island,
+          tiles,
+        },
+      },
+      stepSec,
+    );
+    if (villageStep.changed) {
+      tiles = villageStep.tiles;
+    }
+    totalCoinsAccrued += villageStep.coinsAccrued;
 
     beans = beans.map((bean) => {
       if (bean.isSleeping) {
@@ -716,6 +777,7 @@ export function applyOfflineCatchUp(state: GameState, nowMs: number): OfflineCat
     state: {
       ...state,
       lastTickMs: safeNowMs,
+      island: tiles !== state.island.tiles ? { ...state.island, tiles } : state.island,
       inventory,
       beans,
     },
@@ -725,7 +787,7 @@ export function applyOfflineCatchUp(state: GameState, nowMs: number): OfflineCat
       wasCapped,
       sleptRestored,
       autoCookedMeals,
-      coinsEarned: 0,
+      coinsEarned: Math.floor(totalCoinsAccrued),
     },
   };
 }

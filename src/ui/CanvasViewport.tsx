@@ -1,12 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ProjectedBubblePosition } from '../render/BeanView';
+import type { ProjectedFloatingPopup } from '../render/IslandView';
 import { SceneManager, type SceneStatus } from '../render/SceneManager';
 
 export interface CanvasViewportProps {
   lowPowerMode?: boolean;
   onPadSelect?: (padName: string | null) => void;
   onBeanTap?: (beanId: string) => void;
-  onFrameUpdate?: (dtSeconds: number, bubblePosition: ProjectedBubblePosition | null) => void;
+  onFrameUpdate?: (
+    dtSeconds: number,
+    bubblePosition: ProjectedBubblePosition | null,
+    floatingPopups?: readonly ProjectedFloatingPopup[],
+  ) => void;
   onSceneReady?: (manager: SceneManager | null) => void;
 }
 
@@ -56,8 +61,8 @@ export function CanvasViewport({
         onBeanTap: (beanId) => {
           onBeanTapRef.current?.(beanId);
         },
-        onFrameUpdate: (dtSeconds, bubblePosition) => {
-          onFrameUpdateRef.current?.(dtSeconds, bubblePosition);
+        onFrameUpdate: (dtSeconds, bubblePosition, floatingPopups) => {
+          onFrameUpdateRef.current?.(dtSeconds, bubblePosition, floatingPopups);
         },
       });
       managerRef.current = manager;

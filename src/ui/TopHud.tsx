@@ -6,6 +6,7 @@ import { AudioToggle } from './AudioToggle';
 export interface TopHudProps {
   bean: JellyBeanEntity;
   jellyCoins: number;
+  beanBucks?: number;
   onResetView: () => void;
   soundEnabled?: boolean;
   onToggleSound?: () => void;
@@ -36,6 +37,7 @@ function getNeedTone(value: number): 'healthy' | 'warn' | 'urgent' {
 export function TopHud({
   bean,
   jellyCoins,
+  beanBucks = 0,
   onResetView,
   soundEnabled = true,
   onToggleSound,
@@ -94,9 +96,30 @@ export function TopHud({
         </div>
 
         <div className="top-hud-actions">
-          <div className="hud-pill coin-pill" aria-label={`${jellyCoins} Jelly Coins`}>
-            <span className="coin-dot" aria-hidden="true" />
-            <span>{jellyCoins}</span>
+          <div className="hud-pill currency-group-pill">
+            <span className="currency-item currency-item--jc" aria-label={`${jellyCoins} Jelly Coins`}>
+              <img
+                src={resolveAssetUrl('assets/icons/jelly_coin.png')}
+                alt=""
+                aria-hidden="true"
+                className="currency-icon"
+                width={18}
+                height={18}
+              />
+              <span>{jellyCoins}</span>
+            </span>
+            <span className="currency-divider" aria-hidden="true" />
+            <span className="currency-item currency-item--bb" aria-label={`${beanBucks} Bean Bucks`}>
+              <img
+                src={resolveAssetUrl('assets/icons/bean_buck.png')}
+                alt=""
+                aria-hidden="true"
+                className="currency-icon"
+                width={18}
+                height={18}
+              />
+              <span>{beanBucks}</span>
+            </span>
           </div>
           {onToggleSound && (
             <AudioToggle enabled={soundEnabled} onToggle={onToggleSound} />

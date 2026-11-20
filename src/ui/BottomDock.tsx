@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { CARE_ACTIONS, LOW_NEED_THRESHOLD } from '../sim/constants';
 import type { JellyBeanEntity } from '../sim/types';
 import { resolveAssetUrl } from '../utils/assets';
@@ -10,12 +11,15 @@ export interface BottomDockProps {
   apples: number;
   blankets: number;
   jellyCoins: number;
+  hasToilet?: boolean;
+  buildSheet?: ReactNode;
   onSelectTab: (tab: DockTab) => void;
   onFeedApple: () => void;
   onBuyApple: () => void;
   onToggleSleep: () => void;
   onWarmUp: () => void;
   onWash: () => void;
+  onUseToilet?: () => void;
   onPet: () => void;
 }
 
@@ -45,12 +49,15 @@ export function BottomDock({
   apples,
   blankets,
   jellyCoins,
+  hasToilet = false,
+  buildSheet,
   onSelectTab,
   onFeedApple,
   onBuyApple,
   onToggleSleep,
   onWarmUp,
   onWash,
+  onUseToilet,
   onPet,
 }: BottomDockProps) {
   const outOfApples = apples <= 0;
@@ -134,14 +141,28 @@ export function BottomDock({
 
           <button
             type="button"
-            className={`care-button${dirtyUrgent ? ' care-button--urgent' : ''}`}
-            onClick={onWash}
-            aria-label="Give sponge bath"
+            className={`care-button${dirtyUrgent ? ' care-button--urgent' : ''}${
+              hasToilet ? ' care-button--toilet' : ''
+            }`}
+            onClick={hasToilet && onUseToilet ? onUseToilet : onWash}
+            aria-label={hasToilet ? 'Use Toilet (+100% Hygiene, +5 JC)' : 'Give sponge bath'}
           >
-            <span className="care-emoji" aria-hidden="true">
-              🫧
-            </span>
-            <span className="care-label">Wash</span>
+            {hasToilet && <span className="care-badge">+5 JC</span>}
+            {hasToilet ? (
+              <img
+                src={resolveAssetUrl('assets/icons/toilet.png')}
+                alt=""
+                aria-hidden="true"
+                className="care-icon-img"
+                width={32}
+                height={32}
+              />
+            ) : (
+              <span className="care-emoji" aria-hidden="true">
+                🫧
+              </span>
+            )}
+            <span className="care-label">{hasToilet ? 'Toilet' : 'Wash'}</span>
           </button>
 
           <button
@@ -161,6 +182,8 @@ export function BottomDock({
             <span className="care-label">Pet</span>
           </button>
         </div>
+      ) : activeTab === 'build' && buildSheet ? (
+        buildSheet
       ) : (
         <div className="tab-preview-card" role="status" aria-live="polite">
           <span>{UPCOMING_TAB_COPY[activeTab]}</span>

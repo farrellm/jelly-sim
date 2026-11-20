@@ -184,13 +184,25 @@ function normalizeTiles(
       };
     }
 
-    normalized[key] = {
+    const tile: TileState = {
       id: typeof value.id === 'string' ? value.id : key,
       ring,
       building,
       buildingTier,
       crop,
     };
+
+    const pendingCoins = asFiniteNumber(value.pendingCoins);
+    if (pendingCoins !== null && pendingCoins >= 0) {
+      tile.pendingCoins = pendingCoins;
+    }
+
+    const burgerCooldownSec = asFiniteNumber(value.burgerCooldownSec);
+    if (burgerCooldownSec !== null && burgerCooldownSec >= 0) {
+      tile.burgerCooldownSec = burgerCooldownSec;
+    }
+
+    normalized[key] = tile;
   }
 
   return Object.keys(normalized).length > 0 ? normalized : { ...fallbackTiles };
