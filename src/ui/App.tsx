@@ -10,9 +10,15 @@ import type { MusicMood } from '../audio/MusicSequencer';
 import { mapSpeechCueToBark } from '../audio/VoiceSynth';
 import type { ProjectedBubblePosition } from '../render/BeanView';
 import type { ProjectedFloatingPopup } from '../render/IslandView';
+import type { ProjectedNpcIndicator } from '../render/NpcView';
 import type { SceneManager } from '../render/SceneManager';
 import { getActiveBean } from '../sim/engine';
 import { getBeanSpeechCue } from '../sim/needs';
+import {
+  getActiveMainQuestView,
+  getActiveRadiantTaskView,
+  getReadyToClaimQuest,
+} from '../sim/quests';
 import { GameStore } from '../sim/store';
 import type {
   BeanMoodCueType,
@@ -33,6 +39,7 @@ import { AudioToggle } from './AudioToggle';
 import { BottomDock, type DockTab } from './BottomDock';
 import { BuildSheet } from './BuildSheet';
 import { CanvasViewport } from './CanvasViewport';
+import { DialogueModal, type ClaimedRewardSummary } from './DialogueModal';
 import { OnboardingModal } from './OnboardingModal';
 import { TopHud } from './TopHud';
 
@@ -95,12 +102,15 @@ export function App() {
   const [activeTab, setActiveTab] = useState<DockTab>('care');
   const [selectedPad, setSelectedPad] = useState<string | null>(null);
   const [placementBuilding, setPlacementBuilding] = useState<BuildingType | null>(null);
+  const [dialogueOpen, setDialogueOpen] = useState(false);
+  const [justClaimed, setJustClaimed] = useState<ClaimedRewardSummary | null>(null);
   const [reaction, setReaction] = useState<ReactionBubble | null>(null);
   const [rewardToast, setRewardToast] = useState<RewardToast | null>(null);
 
   const sceneManagerRef = useRef<SceneManager | null>(null);
   const audioEngineRef = useRef<AudioEngine | null>(null);
   const speechBubbleRef = useRef<HTMLDivElement | null>(null);
+  const knockIndicatorRef = useRef<HTMLButtonElement | null>(null);
   const floatingPopupLayerRef = useRef<HTMLDivElement | null>(null);
   const popupNodesRef = useRef<Map<number, HTMLDivElement>>(new Map());
   const placementBuildingRef = useRef<BuildingType | null>(null);
@@ -160,10 +170,11 @@ export function App() {
         switch (event.type) {
           case 'ONBOARDING_COMPLETED':
             sceneManagerRef.current?.triggerHappyBounce();
+            sceneManagerRef.current?.triggerDrBubblegumKnock();
             showReaction(`Hi ${event.parentTitle}!`, 'happy', 2600);
             void audio.unlock().then((ok) => {
               if (ok) {
-                audio.playSfx('wake');
+                audio.playSfx('knock');
                 audio.playVoiceBark('jelly_bean');
               }
             });
@@ -275,6 +286,47 @@ export function App() {
             audio.playSfx('pet');
             audio.playVoiceBark('happy');
             break;
+          case 'DR_BUBBLEGUM_KNOCKED':
+            sceneManagerRef.current?.triggerDrBubblegumKnock();
+            if (event.reason === 'welcome') {
+              setJustClaimed(null);
+              setDialogueOpen(true);
+            } else {
+              audio.playSfx('knock');
+              showToast(`*KNOCK KNOCK* Dr. Bubblegum: ${event.questTitle}!`, 'levelup', 2800);
+            }
+            break;
+          case 'QUEST_COMPLETED':
+            sceneManagerRef.current?.triggerHappyBounce();
+            sceneManagerRef.current?.spawnTilePopup('plot_pad_0', `+${event.coinsGained} JC`, 'coin');
+            if (event.bucksGained > 0) {
+              sceneManagerRef.current?.spawnTilePopup(
+                'plot_pad_0',
+                `+${event.bucksGained} BB`,
+                'buck',
+              );
+            }
+            setJustClaimed({
+              title: event.questTitle,
+              coinsGained: event.coinsGained,
+              bucksGained: event.bucksGained,
+              xpGained: event.xpGained,
+            });
+            showToast(
+              `Quest Complete! +${event.coinsGained} JC${
+                event.bucksGained > 0 ? ` • +${event.bucksGained} BB` : ''
+              }`,
+              'levelup',
+              2600,
+            );
+            audio.playSfx('coin');
+            audio.playVoiceBark('happy');
+            break;
+          case 'RADIANT_TASK_ASSIGNED':
+            setJustClaimed(null);
+            showToast(`New Bonus Task: ${event.title}`);
+            audio.playSfx('tap');
+            break;
           case 'LEVEL_UP':
             sceneManagerRef.current?.triggerHappyBounce();
             showReaction(`Level ${event.newLevel}! Yay!`, 'levelup', 2800);
@@ -333,6 +385,10 @@ export function App() {
     sceneManagerRef.current?.setPlacementMode(placementBuilding);
   }, [placementBuilding]);
 
+  useEffect(() => {
+    sceneManagerRef.current?.syncNpcState(state.quests.drBubblegumAtDoor);
+  }, [state.quests.drBubblegumAtDoor]);
+
   const handleSceneReady = useCallback(
     (manager: SceneManager | null) => {
       sceneManagerRef.current = manager;
@@ -340,6 +396,7 @@ export function App() {
         const current = store.getState();
         manager.syncBeanState(getActiveBean(current), current.mode);
         manager.syncIslandState(current);
+        manager.syncNpcState(current.quests.drBubblegumAtDoor);
         manager.setPlacementMode(placementBuildingRef.current);
       }
     },
@@ -351,6 +408,7 @@ export function App() {
       dtSeconds: number,
       bubblePosition: ProjectedBubblePosition | null,
       floatingPopups: readonly ProjectedFloatingPopup[] = [],
+      npcIndicator: ProjectedNpcIndicator | null = null,
     ) => {
       store.step(dtSeconds);
 
@@ -361,6 +419,17 @@ export function App() {
           el.style.visibility = 'visible';
         } else {
           el.style.visibility = 'hidden';
+        }
+      }
+
+      const knockEl = knockIndicatorRef.current;
+      if (knockEl) {
+        if (npcIndicator && npcIndicator.visible) {
+          const pulseScale = 0.96 + npcIndicator.pulse * 0.08;
+          knockEl.style.transform = `translate3d(${npcIndicator.x.toFixed(1)}px, ${npcIndicator.y.toFixed(1)}px, 0) translate(-50%, -100%) scale(${pulseScale.toFixed(3)})`;
+          knockEl.style.visibility = 'visible';
+        } else {
+          knockEl.style.visibility = 'hidden';
         }
       }
 
@@ -567,6 +636,38 @@ export function App() {
     sceneManagerRef.current?.setSelectedPad(null);
   }, []);
 
+  const handleOpenDialogue = useCallback(() => {
+    if (!store.getState().onboarded) return;
+    audioEngineRef.current?.playSfx('tap');
+    setJustClaimed(null);
+    setDialogueOpen(true);
+  }, [store]);
+
+  const handleCloseDialogue = useCallback(() => {
+    audioEngineRef.current?.playSfx('tap');
+    setDialogueOpen(false);
+    setJustClaimed(null);
+  }, []);
+
+  const handleClaimQuest = useCallback(
+    (questId: string) => {
+      store.dispatch({ type: 'CLAIM_QUEST_REWARD', questId });
+    },
+    [store],
+  );
+
+  const handleRequestRadiantTask = useCallback(() => {
+    store.dispatch({ type: 'REQUEST_RADIANT_TASK' });
+  }, [store]);
+
+  const handleNpcTap = useCallback(
+    (npcId: string) => {
+      if (npcId !== 'dr_bubblegum') return;
+      handleOpenDialogue();
+    },
+    [handleOpenDialogue],
+  );
+
   const needSpeechCue = state.onboarded
     ? getBeanSpeechCue(activeBean, state.parentTitle, state.mode)
     : null;
@@ -605,6 +706,11 @@ export function App() {
     activeBean.isSleeping,
   );
 
+  const mainQuestView = getActiveMainQuestView(state);
+  const radiantTaskView = getActiveRadiantTaskView(state);
+  const readyQuest = getReadyToClaimQuest(state);
+  const trackerQuest = readyQuest ?? mainQuestView ?? radiantTaskView;
+
   const selectedTile = selectedPad ? state.island.tiles[selectedPad] ?? null : null;
   const standRatePerMin = getHamburgerStandRatePerMin(state);
   const showTileCard =
@@ -629,12 +735,13 @@ export function App() {
         lowPowerMode={state.settings.lowPowerMode}
         onPadSelect={handlePadSelect}
         onBeanTap={handleBeanTap}
+        onNpcTap={handleNpcTap}
         onFrameUpdate={handleFrameUpdate}
         onSceneReady={handleSceneReady}
       />
 
-      {/* 3D-to-2D projected speech bubble & floating +JC popups */}
-      <div className="bubble-layer" aria-hidden={!speechText}>
+      {/* 3D-to-2D projected speech bubble, Dr. Bubblegum *KNOCK KNOCK* indicator & floating +JC popups */}
+      <div className="bubble-layer" aria-hidden={!speechText && !state.quests.drBubblegumAtDoor}>
         <div
           ref={speechBubbleRef}
           className={`speech-bubble ${speechToneClass}${speechText ? ' speech-bubble--shown' : ''}`}
@@ -648,6 +755,18 @@ export function App() {
             </>
           )}
         </div>
+        {state.onboarded && state.quests.drBubblegumAtDoor && (
+          <button
+            ref={knockIndicatorRef}
+            type="button"
+            className="knock-indicator-pill"
+            onClick={handleOpenDialogue}
+            aria-label="Answer Dr. Bubblegum at your door"
+          >
+            <span className="knock-indicator-text">*KNOCK KNOCK*</span>
+            <span className="knock-indicator-tail" aria-hidden="true" />
+          </button>
+        )}
         <div ref={floatingPopupLayerRef} className="floating-popup-layer" aria-hidden="true" />
       </div>
 
@@ -668,6 +787,59 @@ export function App() {
             enabled={state.settings.soundEnabled}
             onToggle={handleToggleSound}
           />
+        </div>
+      )}
+
+      {state.onboarded && state.quests.drBubblegumAtDoor && (
+        <div className="knock-banner-wrap">
+          <button
+            type="button"
+            className="knock-banner-card"
+            onClick={handleOpenDialogue}
+            aria-label="Dr. Bubblegum is knocking at your door. Tap to answer."
+          >
+            <img
+              src={resolveAssetUrl('assets/icons/dr_bubblegum.png')}
+              alt=""
+              aria-hidden="true"
+              className="knock-banner-avatar"
+              width={36}
+              height={36}
+            />
+            <div className="knock-banner-copy">
+              <strong>*KNOCK KNOCK* — Dr. Bubblegum is at your door!</strong>
+              <span>
+                {readyQuest
+                  ? `Tap to claim: ${readyQuest.title}`
+                  : 'Tap to greet the Professor'}
+              </span>
+            </div>
+            <span className="knock-banner-cta">Answer</span>
+          </button>
+        </div>
+      )}
+
+      {state.onboarded && !state.quests.drBubblegumAtDoor && !offlineSummary && trackerQuest && (
+        <div className="quest-pill-wrap">
+          <button
+            type="button"
+            className="hud-pill quest-tracker-pill"
+            onClick={handleOpenDialogue}
+            aria-label={`Active quest: ${trackerQuest.title}`}
+          >
+            <img
+              src={resolveAssetUrl('assets/icons/dr_bubblegum.png')}
+              alt=""
+              aria-hidden="true"
+              className="quest-tracker-icon"
+              width={20}
+              height={20}
+            />
+            <span className="quest-tracker-title">{trackerQuest.title}</span>
+            <span className="quest-tracker-count">
+              {trackerQuest.progress.current}/{trackerQuest.progress.target}
+            </span>
+          </button>
         </div>
       )}
 
@@ -810,23 +982,35 @@ export function App() {
 
               {selectedTile.building === 'starter_house' && (() => {
                 const nextTier = getHouseUpgradeTier(selectedTile.buildingTier);
-                if (!nextTier) {
-                  return (
-                    <span className="tile-max-note">Fully upgraded Gingerbread Manor!</span>
-                  );
-                }
-                const affordable = canAfford(state, nextTier.costJellyCoins, nextTier.costBeanBucks);
+                const affordable = nextTier
+                  ? canAfford(state, nextTier.costJellyCoins, nextTier.costBeanBucks)
+                  : false;
                 return (
-                  <button
-                    type="button"
-                    className="tile-cta-btn tile-cta-btn--gold"
-                    disabled={!affordable}
-                    onClick={handleUpgradeHouse}
-                  >
-                    <span>
-                      Upgrade to {nextTier.name} ({nextTier.costJellyCoins} JC)
-                    </span>
-                  </button>
+                  <>
+                    {state.quests.drBubblegumAtDoor && (
+                      <button
+                        type="button"
+                        className="tile-cta-btn tile-cta-btn--pink"
+                        onClick={handleOpenDialogue}
+                      >
+                        <span>🚪 Answer Door</span>
+                      </button>
+                    )}
+                    {nextTier ? (
+                      <button
+                        type="button"
+                        className="tile-cta-btn tile-cta-btn--gold"
+                        disabled={!affordable}
+                        onClick={handleUpgradeHouse}
+                      >
+                        <span>
+                          Upgrade ({nextTier.costJellyCoins} JC)
+                        </span>
+                      </button>
+                    ) : (
+                      <span className="tile-max-note">Fully upgraded Gingerbread Manor!</span>
+                    )}
+                  </>
                 );
               })()}
 
@@ -861,6 +1045,18 @@ export function App() {
           onWash={handleWash}
           onUseToilet={handleUseToilet}
           onPet={handlePet}
+        />
+      )}
+
+      {state.onboarded && dialogueOpen && (
+        <DialogueModal
+          state={state}
+          mainQuest={mainQuestView}
+          radiantTask={radiantTaskView}
+          justClaimed={justClaimed}
+          onClaimQuest={handleClaimQuest}
+          onRequestRadiantTask={handleRequestRadiantTask}
+          onClose={handleCloseDialogue}
         />
       )}
 

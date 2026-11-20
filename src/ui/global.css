@@ -1437,3 +1437,444 @@ textarea {
     height: 15px;
   }
 }
+
+/* PR-10 Dr. Bubblegum Door-Knock Indicator, Banner, Quest Tracker & DialogueModal */
+.knock-indicator-pill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  appearance: none;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ff79a8 0%, var(--berry-pink-deep) 100%);
+  border: 2px solid #ffffff;
+  box-shadow: 0 8px 20px rgba(224, 74, 125, 0.38);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  cursor: pointer;
+  pointer-events: auto;
+  visibility: hidden;
+  will-change: transform;
+}
+
+.knock-indicator-tail {
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 10px;
+  height: 10px;
+  transform: translateX(-50%) rotate(45deg);
+  background: var(--berry-pink-deep);
+  border-right: 2px solid #ffffff;
+  border-bottom: 2px solid #ffffff;
+}
+
+.knock-banner-wrap,
+.quest-pill-wrap {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  padding: 4px 12px 0;
+  pointer-events: none;
+}
+
+.knock-banner-card {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(100%, 440px);
+  min-height: 52px;
+  padding: 7px 10px 7px 8px;
+  border-radius: 20px;
+  border: 2px solid #ff8cb4;
+  background: linear-gradient(180deg, rgba(255, 246, 250, 0.96) 0%, rgba(255, 232, 242, 0.96) 100%);
+  box-shadow: 0 10px 24px rgba(224, 74, 125, 0.24);
+  backdrop-filter: blur(10px);
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+  animation: knock-banner-pulse 1.9s ease-in-out infinite;
+}
+
+.knock-banner-card:active {
+  transform: scale(0.97);
+}
+
+@keyframes knock-banner-pulse {
+  0%,
+  100% {
+    box-shadow: 0 8px 20px rgba(224, 74, 125, 0.22);
+  }
+  50% {
+    box-shadow: 0 8px 24px rgba(224, 74, 125, 0.42), 0 0 0 3px rgba(255, 107, 157, 0.22);
+  }
+}
+
+.knock-banner-avatar {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 28%, #fff1f6, #ffc2db);
+  object-fit: contain;
+}
+
+.knock-banner-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--ink-secondary);
+}
+
+.knock-banner-copy strong {
+  font-size: 0.78rem;
+  font-weight: 900;
+  color: #8f1d45;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.knock-banner-cta {
+  flex-shrink: 0;
+  padding: 6px 11px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ff85ae 0%, var(--berry-pink) 100%);
+  color: #ffffff;
+  font-size: 0.74rem;
+  font-weight: 900;
+}
+
+.quest-tracker-pill {
+  min-height: 34px;
+  padding: 4px 12px 4px 7px;
+  gap: 6px;
+  font-size: 0.74rem;
+  cursor: pointer;
+}
+
+.quest-tracker-pill:active {
+  transform: scale(0.96);
+}
+
+.quest-tracker-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ffe2ee;
+  object-fit: contain;
+}
+
+.quest-tracker-title {
+  max-width: 210px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.quest-tracker-count {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(255, 107, 157, 0.16);
+  color: var(--berry-pink-deep);
+  font-size: 0.68rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Dr. Bubblegum DialogueModal */
+.dialogue-card {
+  width: min(100%, 388px);
+  max-height: calc(100dvh - 32px - var(--sat) - var(--sab));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px 16px 14px;
+  border-radius: 26px;
+  background: var(--cream-solid);
+  border: 2.5px solid rgba(255, 255, 255, 0.96);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.dialogue-header {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.dialogue-portrait-wrap {
+  position: relative;
+  width: 68px;
+  height: 68px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 28%, #fff1f6, #ffc4dd 70%, #ff9cc6);
+  border: 2.5px solid #ffffff;
+  box-shadow: 0 6px 16px rgba(224, 74, 125, 0.24);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dialogue-portrait {
+  width: 62px;
+  height: 62px;
+  object-fit: contain;
+}
+
+.dialogue-npc-badge {
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--ink-primary);
+  color: #ffffff;
+  font-size: 0.6rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.dialogue-title-block {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dialogue-eyebrow {
+  margin: 0;
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--berry-pink-deep);
+}
+
+.dialogue-speaker {
+  margin: 0;
+  font-size: 1.16rem;
+  font-weight: 900;
+  line-height: 1.1;
+  color: var(--ink-primary);
+}
+
+.dialogue-quest-kicker {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--ink-secondary);
+}
+
+.dialogue-claimed-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 11px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #e7ffef 0%, #ccf7dc 100%);
+  border: 1.5px solid #59d68e;
+  color: #135a33;
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.dialogue-claimed-check {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #2ab667;
+  color: #ffffff;
+  font-size: 0.74rem;
+  font-weight: 900;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dialogue-speech-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dialogue-bubble {
+  padding: 9px 12px;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.dialogue-bubble--stern {
+  background: #fff0f6;
+  border: 1.5px solid rgba(255, 107, 157, 0.34);
+}
+
+.dialogue-bubble--warm {
+  background: #fffaf0;
+  border: 1.5px solid rgba(255, 194, 71, 0.45);
+}
+
+.dialogue-tone-tag {
+  align-self: flex-start;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(224, 74, 125, 0.14);
+  color: var(--berry-pink-deep);
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.dialogue-tone-tag--warm {
+  background: rgba(244, 169, 56, 0.2);
+  color: #8c5300;
+}
+
+.dialogue-quote {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.38;
+  font-weight: 700;
+  color: var(--ink-primary);
+}
+
+.dialogue-objective-box,
+.dialogue-bonus-card {
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1.5px solid rgba(59, 34, 64, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dialogue-objective-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dialogue-objective-title {
+  font-size: 0.86rem;
+  font-weight: 900;
+  color: var(--ink-primary);
+}
+
+.dialogue-progress-chip {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(59, 34, 64, 0.08);
+  color: var(--ink-secondary);
+  font-size: 0.7rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.dialogue-progress-chip--done {
+  background: #d7f7e4;
+  color: #157347;
+}
+
+.dialogue-objective-copy {
+  margin: 0;
+  font-size: 0.76rem;
+  line-height: 1.35;
+  font-weight: 700;
+  color: var(--ink-secondary);
+}
+
+.dialogue-progress-track {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(59, 34, 64, 0.1);
+  overflow: hidden;
+}
+
+.dialogue-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ff85ae 0%, #ffb74d 100%);
+  transition: width 220ms ease;
+}
+
+.dialogue-progress-fill--done {
+  background: linear-gradient(90deg, #5ee092 0%, #2eb86b 100%);
+}
+
+.dialogue-rewards-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 2px;
+}
+
+.dialogue-rewards-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--ink-secondary);
+}
+
+.dialogue-xp-tag {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #ffe3ef;
+  color: var(--berry-pink-deep);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.dialogue-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dialogue-claim-btn {
+  background: linear-gradient(180deg, #ffd859 0%, #ffab1f 100%);
+  color: #5a3200;
+  box-shadow: 0 8px 18px rgba(227, 155, 0, 0.34);
+}
+
+.dialogue-secondary-btn {
+  appearance: none;
+  border: 2px solid rgba(255, 107, 157, 0.34);
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 14px;
+  border-radius: 16px;
+  background: #ffffff;
+  color: var(--berry-pink-deep);
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.dialogue-secondary-btn:active {
+  transform: scale(0.97);
+}

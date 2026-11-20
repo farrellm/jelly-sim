@@ -11,6 +11,13 @@ import {
   xpForLevel,
 } from './constants';
 import { clamp, getNeedFloor, tickBeanNeeds } from './needs';
+import {
+  applyQuestProgressAfterEvents,
+  claimQuestReward,
+  createInitialQuestsState,
+  requestRadiantTask,
+  syncQuestDoorState,
+} from './quests';
 import { normalizeSeed } from './rng';
 import {
   collectStandIncome,
@@ -138,11 +145,7 @@ export function createInitialState(options: CreateInitialStateOptions = {}): Gam
       current: 'sunny',
       nextChangeMs: nowMs + INITIAL_STARTER_CONFIG.initialWeatherDurationMs,
     },
-    quests: {
-      completedIds: [],
-      activeQuestId: 'q1_welcome',
-      drBubblegumAtDoor: true,
-    },
+    quests: createInitialQuestsState(),
     social: {
       friendsGiftedCount: 0,
       redeemedGiftNonces: [],
@@ -220,6 +223,23 @@ function resolveTargetBean(state: GameState, requestedId?: string): JellyBeanEnt
  * Pure state reducer for all player-initiated actions.
  */
 export function dispatch(state: GameState, action: SimAction, nowMs?: number): DispatchResult {
+  const core = reduceCoreAction(state, action, nowMs);
+  if (action.type === 'CLAIM_QUEST_REWARD' || action.type === 'REQUEST_RADIANT_TASK') {
+    return core;
+  }
+
+  const questUpdated = applyQuestProgressAfterEvents(state, core.state, core.events);
+  if (questUpdated.addedEvents.length === 0 && questUpdated.state === core.state) {
+    return core;
+  }
+
+  return {
+    state: questUpdated.state,
+    events: [...core.events, ...questUpdated.addedEvents],
+  };
+}
+
+function reduceCoreAction(state: GameState, action: SimAction, nowMs?: number): DispatchResult {
   const nextLastTickMs = nowMs !== undefined ? Math.max(state.lastTickMs, nowMs) : state.lastTickMs;
   const floor = getNeedFloor(state.mode);
   const events: SimEvent[] = [];
@@ -626,6 +646,14 @@ export function dispatch(state: GameState, action: SimAction, nowMs?: number): D
     case 'GRAB_FREE_BURGER': {
       return grabFreeBurger(state, action.tileId, action.beanId, nowMs);
     }
+
+    case 'CLAIM_QUEST_REWARD': {
+      return claimQuestReward(state, action.questId, nowMs);
+    }
+
+    case 'REQUEST_RADIANT_TASK': {
+      return requestRadiantTask(state, nowMs);
+    }
   }
 }
 
@@ -652,7 +680,7 @@ export function tick(state: GameState, dtSeconds: number, nowMs?: number): GameS
   const nextLastTickMs =
     nowMs !== undefined ? Math.max(state.lastTickMs, nowMs) : state.lastTickMs + Math.round(dtSeconds * 1000);
 
-  return {
+  const tickedState: GameState = {
     ...state,
     lastTickMs: nextLastTickMs,
     sessionPlaySeconds: state.sessionPlaySeconds + dtSeconds,
@@ -664,6 +692,8 @@ export function tick(state: GameState, dtSeconds: number, nowMs?: number): GameS
       : state.island,
     beans: nextBeans,
   };
+
+  return syncQuestDoorState(tickedState);
 }
 
 /**

@@ -14,6 +14,7 @@ import {
   type FloatingPopupAccent,
   type ProjectedFloatingPopup,
 } from './IslandView';
+import { NpcView, type ProjectedNpcIndicator } from './NpcView';
 import { TouchCameraController, type TapEvent } from './TouchCameraController';
 
 export { findCanonicalPlotPad };
@@ -28,10 +29,12 @@ export interface SceneManagerOptions {
   onStatusChange?: (status: SceneStatus, message?: string) => void;
   onPadSelect?: (padName: string | null) => void;
   onBeanTap?: (beanId: string) => void;
+  onNpcTap?: (npcId: string) => void;
   onFrameUpdate?: (
     dtSeconds: number,
     bubblePosition: ProjectedBubblePosition | null,
     floatingPopups?: readonly ProjectedFloatingPopup[],
+    npcIndicator?: ProjectedNpcIndicator | null,
   ) => void;
 }
 
@@ -40,6 +43,7 @@ const STARTER_HOUSE_MODEL = 'assets/models/starter_house.glb';
 const BED_PROP_MODEL = 'assets/models/bed_prop.glb';
 const LARVA_MODEL = 'assets/models/jellybean_larva.glb';
 const APPLE_MODEL = 'assets/models/apple.glb';
+const DR_BUBBLEGUM_MODEL = 'assets/models/dr_bubblegum.glb';
 
 const SKY_VERTEX_SHADER = /* glsl */ `
   varying vec3 vWorldDirection;
@@ -157,10 +161,12 @@ export class SceneManager {
   private readonly onStatusChange?: (status: SceneStatus, message?: string) => void;
   private readonly onPadSelect?: (padName: string | null) => void;
   private readonly onBeanTap?: (beanId: string) => void;
+  private readonly onNpcTap?: (npcId: string) => void;
   private readonly onFrameUpdate?: (
     dtSeconds: number,
     bubblePosition: ProjectedBubblePosition | null,
     floatingPopups?: readonly ProjectedFloatingPopup[],
+    npcIndicator?: ProjectedNpcIndicator | null,
   ) => void;
 
   private readonly renderer: THREE.WebGLRenderer;
@@ -174,9 +180,11 @@ export class SceneManager {
 
   private islandView: IslandView | null = null;
   private beanView: BeanView | null = null;
+  private npcView: NpcView | null = null;
   private pendingBeanState: { bean: JellyBeanEntity; mode: GameMode } | null = null;
   private pendingIslandState: Pick<GameState, 'island'> | null = null;
   private pendingPlacementMode: BuildingType | null = null;
+  private pendingDrBubblegumAtDoor = false;
   private viewportWidth: number;
   private viewportHeight: number;
   private oceanUniforms: { uTime: { value: number } } | null = null;
@@ -199,6 +207,7 @@ export class SceneManager {
     this.onStatusChange = options.onStatusChange;
     this.onPadSelect = options.onPadSelect;
     this.onBeanTap = options.onBeanTap;
+    this.onNpcTap = options.onNpcTap;
     this.onFrameUpdate = options.onFrameUpdate;
 
     this.scene = new THREE.Scene();
@@ -264,6 +273,10 @@ export class SceneManager {
     return this.islandView;
   }
 
+  getNpcView(): NpcView | null {
+    return this.npcView;
+  }
+
   syncBeanState(bean: JellyBeanEntity, mode: GameMode = 'regular'): void {
     this.pendingBeanState = { bean, mode };
     this.beanView?.syncState(bean, mode);
@@ -272,6 +285,16 @@ export class SceneManager {
   syncIslandState(state: Pick<GameState, 'island'>): void {
     this.pendingIslandState = state;
     this.islandView?.syncFromState(state);
+  }
+
+  syncNpcState(drBubblegumAtDoor: boolean): void {
+    this.pendingDrBubblegumAtDoor = drBubblegumAtDoor;
+    this.npcView?.setAtDoor(drBubblegumAtDoor);
+  }
+
+  triggerDrBubblegumKnock(): void {
+    this.npcView?.triggerKnock();
+    this.islandView?.triggerFrontDoorKnock();
   }
 
   setPlacementMode(buildingType: BuildingType | null): void {
@@ -323,6 +346,9 @@ export class SceneManager {
 
     this.beanView?.dispose();
     this.beanView = null;
+
+    this.npcView?.dispose();
+    this.npcView = null;
 
     this.islandView?.dispose();
     this.islandView = null;
@@ -469,28 +495,33 @@ export class SceneManager {
 
   private async loadStarterIsland(): Promise<void> {
     try {
-      const [islandModel, houseModel, bedModel, larvaModel, appleModel] = await Promise.all([
-        this.assetLoader.loadModel(STARTER_ISLAND_MODEL, {
-          castShadow: true,
-          receiveShadow: true,
-        }),
-        this.assetLoader.loadModel(STARTER_HOUSE_MODEL, {
-          castShadow: true,
-          receiveShadow: true,
-        }),
-        this.assetLoader.loadModel(BED_PROP_MODEL, {
-          castShadow: true,
-          receiveShadow: true,
-        }),
-        this.assetLoader.loadModel(LARVA_MODEL, {
-          castShadow: true,
-          receiveShadow: false,
-        }),
-        this.assetLoader.loadModel(APPLE_MODEL, {
-          castShadow: true,
-          receiveShadow: false,
-        }),
-      ]);
+      const [islandModel, houseModel, bedModel, larvaModel, appleModel, drBubblegumModel] =
+        await Promise.all([
+          this.assetLoader.loadModel(STARTER_ISLAND_MODEL, {
+            castShadow: true,
+            receiveShadow: true,
+          }),
+          this.assetLoader.loadModel(STARTER_HOUSE_MODEL, {
+            castShadow: true,
+            receiveShadow: true,
+          }),
+          this.assetLoader.loadModel(BED_PROP_MODEL, {
+            castShadow: true,
+            receiveShadow: true,
+          }),
+          this.assetLoader.loadModel(LARVA_MODEL, {
+            castShadow: true,
+            receiveShadow: false,
+          }),
+          this.assetLoader.loadModel(APPLE_MODEL, {
+            castShadow: true,
+            receiveShadow: false,
+          }),
+          this.assetLoader.loadModel(DR_BUBBLEGUM_MODEL, {
+            castShadow: true,
+            receiveShadow: false,
+          }),
+        ]);
 
       if (this.disposed) {
         return;
@@ -531,6 +562,13 @@ export class SceneManager {
       }
       this.islandAnchor.add(this.beanView.group);
 
+      // Mount Dr. Bubblegum NPC View at the Starter House doorstep
+      this.npcView = new NpcView({
+        drBubblegumModel,
+        initialAtDoor: this.pendingDrBubblegumAtDoor,
+      });
+      this.islandAnchor.add(this.npcView.group);
+
       if (!this.contextLost) {
         this.setStatus('ready');
       }
@@ -547,6 +585,19 @@ export class SceneManager {
     }
 
     this.raycaster.setFromCamera(new THREE.Vector2(tap.ndcX, tap.ndcY), this.camera);
+
+    // Prioritize tapping directly on Dr. Bubblegum when he is knocking at the door
+    if (this.npcView && !this.pendingPlacementMode) {
+      const npcTargets = this.npcView.getRaycastTargets();
+      if (npcTargets.length > 0) {
+        const npcHits = this.raycaster.intersectObjects(npcTargets, true);
+        if (npcHits.length > 0) {
+          this.npcView.triggerKnock();
+          this.onNpcTap?.('dr_bubblegum');
+          return;
+        }
+      }
+    }
 
     // Prioritize tapping directly on the Jelly Bean for instant tactile petting
     // (unless the player is actively choosing a pad to place a building!)
@@ -709,7 +760,17 @@ export class SceneManager {
       );
     }
 
-    this.onFrameUpdate?.(dt, bubblePosition, floatingPopups);
+    let npcIndicator: ProjectedNpcIndicator | null = null;
+    if (this.npcView) {
+      this.npcView.update(dt);
+      npcIndicator = this.npcView.projectKnockIndicator(
+        this.camera,
+        this.viewportWidth,
+        this.viewportHeight,
+      );
+    }
+
+    this.onFrameUpdate?.(dt, bubblePosition, floatingPopups, npcIndicator);
 
     this.renderer.render(this.scene, this.camera);
     this.rafId = window.requestAnimationFrame(this.tickFrame);

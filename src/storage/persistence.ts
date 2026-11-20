@@ -7,11 +7,15 @@ import {
 } from '../sim/constants';
 import { createInitialState, sanitizeLabel } from '../sim/engine';
 import { clamp, getNeedFloor } from '../sim/needs';
+import { createDefaultQuestCounters } from '../sim/quests';
 import { normalizeSeed } from '../sim/rng';
 import type {
   GameMode,
   GameState,
   JellyBeanEntity,
+  QuestProgressCounters,
+  RadiantTaskState,
+  RadiantTaskTemplateId,
   SaveSlotId,
   SwordItem,
   TileState,
@@ -226,6 +230,61 @@ function normalizeSwords(rawSwords: unknown): SwordItem[] {
   return swords;
 }
 
+function isRadiantTemplateId(value: unknown): value is RadiantTaskTemplateId {
+  return (
+    value === 'radiant_feed_apples' ||
+    value === 'radiant_pet_bean' ||
+    value === 'radiant_toilet_habit' ||
+    value === 'radiant_stand_coins' ||
+    value === 'radiant_nap_time'
+  );
+}
+
+function normalizeQuestCounters(raw: unknown): QuestProgressCounters {
+  const defaults = createDefaultQuestCounters();
+  if (!isPlainRecord(raw)) {
+    return defaults;
+  }
+  return {
+    applesFed: Math.floor(asNonNegativeNumber(raw.applesFed, 0)),
+    timesSlept: Math.floor(asNonNegativeNumber(raw.timesSlept, 0)),
+    toiletUses: Math.floor(asNonNegativeNumber(raw.toiletUses, 0)),
+    standCoinsCollected: Math.floor(asNonNegativeNumber(raw.standCoinsCollected, 0)),
+    petsGiven: Math.floor(asNonNegativeNumber(raw.petsGiven, 0)),
+    holesDug: Math.floor(asNonNegativeNumber(raw.holesDug, 0)),
+    feathersGathered: Math.floor(asNonNegativeNumber(raw.feathersGathered, 0)),
+    blanketsKnitted: Math.floor(asNonNegativeNumber(raw.blanketsKnitted, 0)),
+    parsleyHarvested: Math.floor(asNonNegativeNumber(raw.parsleyHarvested, 0)),
+    tomatoesHarvested: Math.floor(asNonNegativeNumber(raw.tomatoesHarvested, 0)),
+    candyCanesHarvested: Math.floor(asNonNegativeNumber(raw.candyCanesHarvested, 0)),
+    hundredBeansHarvested: Math.floor(asNonNegativeNumber(raw.hundredBeansHarvested, 0)),
+    gumdropRunsCompleted: Math.floor(asNonNegativeNumber(raw.gumdropRunsCompleted, 0)),
+    bonusBeansRedeemed: Math.floor(asNonNegativeNumber(raw.bonusBeansRedeemed, 0)),
+    witchDefeatedCount: Math.floor(asNonNegativeNumber(raw.witchDefeatedCount, 0)),
+  };
+}
+
+function normalizeRadiantTask(raw: unknown): RadiantTaskState | null {
+  if (!isPlainRecord(raw)) return null;
+  if (typeof raw.id !== 'string' || raw.id.length === 0) return null;
+  if (!isRadiantTemplateId(raw.templateId)) return null;
+  const index = asFiniteNumber(raw.index);
+  const targetDelta = asFiniteNumber(raw.targetDelta);
+  if (index === null || index < 1 || targetDelta === null || targetDelta < 1) {
+    return null;
+  }
+  return {
+    id: raw.id,
+    index: Math.floor(index),
+    templateId: raw.templateId,
+    baseline: Math.floor(asNonNegativeNumber(raw.baseline, 0)),
+    targetDelta: Math.floor(targetDelta),
+    rewardJellyCoins: Math.floor(asNonNegativeNumber(raw.rewardJellyCoins, 25)),
+    rewardBeanBucks: Math.floor(asNonNegativeNumber(raw.rewardBeanBucks, 2)),
+    rewardXp: Math.floor(asNonNegativeNumber(raw.rewardXp, 15)),
+  };
+}
+
 export interface MigrationResult {
   state: GameState;
   migrated: boolean;
@@ -376,6 +435,9 @@ export function migrateState(
         typeof rawQuests.drBubblegumAtDoor === 'boolean'
           ? rawQuests.drBubblegumAtDoor
           : defaults.quests.drBubblegumAtDoor,
+      radiantCompletedCount: Math.floor(asNonNegativeNumber(rawQuests.radiantCompletedCount, 0)),
+      activeRadiantTask: normalizeRadiantTask(rawQuests.activeRadiantTask),
+      counters: normalizeQuestCounters(rawQuests.counters),
     },
     social: {
       friendsGiftedCount: Math.floor(asNonNegativeNumber(rawSocial.friendsGiftedCount, 0)),

@@ -450,6 +450,19 @@ export class IslandView {
   }
 
   /**
+   * Vibrates the Starter House FrontDoor subtly when Dr. Bubblegum knocks!
+   */
+  triggerFrontDoorKnock(): void {
+    if (this.disposed) return;
+    const house = Array.from(this.mountedBuildings.values()).find(
+      (b) => b.type === 'starter_house',
+    );
+    if (house) {
+      house.doorAnimRemaining = DOOR_FLUSH_DURATION;
+    }
+  }
+
+  /**
    * Spawns a projected floating text popup (`+15 JC`, `+5 JC`, etc.) above a tile,
    * accompanied by spinning 3D coin particles when accent is `'coin'`.
    */
@@ -517,12 +530,14 @@ export class IslandView {
         mounted.root.scale.setScalar(mounted.baseScale);
       }
 
-      // Toilet door playful wiggle on flush
+      // Toilet door playful wiggle on flush / Starter House FrontDoor rattle on Dr. Bubblegum knock
       if (mounted.doorNode) {
         if (mounted.doorAnimRemaining > 0) {
           mounted.doorAnimRemaining = Math.max(0, mounted.doorAnimRemaining - dt);
           const p = 1 - mounted.doorAnimRemaining / DOOR_FLUSH_DURATION;
-          mounted.doorNode.rotation.y = mounted.doorBaseRotY + Math.sin(p * Math.PI * 2) * 0.45;
+          const amp = mounted.type === 'starter_house' ? 0.16 : 0.45;
+          const freq = mounted.type === 'starter_house' ? Math.PI * 4 : Math.PI * 2;
+          mounted.doorNode.rotation.y = mounted.doorBaseRotY + Math.sin(p * freq) * amp;
         } else {
           mounted.doorNode.rotation.y = mounted.doorBaseRotY;
         }
@@ -762,7 +777,10 @@ export class IslandView {
     root.scale.setScalar(animatePop ? baseScale * 0.15 : baseScale);
     root.add(model);
 
-    const doorNode = model.getObjectByName('ToiletDoor') ?? null;
+    const doorNode =
+      type === 'starter_house'
+        ? model.getObjectByName('FrontDoor') ?? null
+        : model.getObjectByName('ToiletDoor') ?? null;
     const burgerSignNode = model.getObjectByName('BurgerSign') ?? null;
 
     let coinBadge: THREE.Object3D | null = null;

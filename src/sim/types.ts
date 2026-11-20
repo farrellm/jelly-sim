@@ -69,6 +69,51 @@ export interface SwordItem {
   craftedAtMs: number;
 }
 
+export type RadiantTaskTemplateId =
+  | 'radiant_feed_apples'
+  | 'radiant_pet_bean'
+  | 'radiant_toilet_habit'
+  | 'radiant_stand_coins'
+  | 'radiant_nap_time';
+
+export interface QuestProgressCounters {
+  applesFed: number;
+  timesSlept: number;
+  toiletUses: number;
+  standCoinsCollected: number;
+  petsGiven: number;
+  holesDug: number;
+  feathersGathered: number;
+  blanketsKnitted: number;
+  parsleyHarvested: number;
+  tomatoesHarvested: number;
+  candyCanesHarvested: number;
+  hundredBeansHarvested: number;
+  gumdropRunsCompleted: number;
+  bonusBeansRedeemed: number;
+  witchDefeatedCount: number;
+}
+
+export interface RadiantTaskState {
+  id: string;
+  index: number;
+  templateId: RadiantTaskTemplateId;
+  baseline: number;
+  targetDelta: number;
+  rewardJellyCoins: number;
+  rewardBeanBucks: number;
+  rewardXp: number;
+}
+
+export interface QuestsState {
+  completedIds: string[];
+  activeQuestId: string | null;
+  drBubblegumAtDoor: boolean;
+  radiantCompletedCount: number;
+  activeRadiantTask: RadiantTaskState | null;
+  counters: QuestProgressCounters;
+}
+
 export interface GameSettings {
   soundEnabled: boolean;
   soothingSoundsMode: boolean;
@@ -119,11 +164,7 @@ export interface GameState {
     current: WeatherType;
     nextChangeMs: number;
   };
-  quests: {
-    completedIds: string[];
-    activeQuestId: string | null;
-    drBubblegumAtDoor: boolean;
-  };
+  quests: QuestsState;
   social: {
     friendsGiftedCount: number;
     redeemedGiftNonces: string[];
@@ -151,7 +192,9 @@ export type SimAction =
   | { type: 'UPGRADE_HOUSE'; tileId?: string }
   | { type: 'USE_TOILET'; beanId?: string }
   | { type: 'COLLECT_STAND_INCOME'; tileId?: string }
-  | { type: 'GRAB_FREE_BURGER'; tileId?: string; beanId?: string };
+  | { type: 'GRAB_FREE_BURGER'; tileId?: string; beanId?: string }
+  | { type: 'CLAIM_QUEST_REWARD'; questId?: string }
+  | { type: 'REQUEST_RADIANT_TASK' };
 
 export type SimEvent =
   | { type: 'ONBOARDING_COMPLETED'; beanName: string; parentTitle: string }
@@ -180,6 +223,22 @@ export type SimEvent =
   | { type: 'TOILET_USED'; beanId: string; tileId: string; xpGained: number; coinsGained: number }
   | { type: 'STAND_INCOME_COLLECTED'; tileId: string; coinsCollected: number }
   | { type: 'BURGER_EATEN'; beanId: string; tileId: string; xpGained: number }
+  | {
+      type: 'DR_BUBBLEGUM_KNOCKED';
+      questId: string;
+      questTitle: string;
+      reason: 'welcome' | 'quest_ready';
+    }
+  | {
+      type: 'QUEST_COMPLETED';
+      questId: string;
+      questTitle: string;
+      coinsGained: number;
+      bucksGained: number;
+      xpGained: number;
+      nextQuestId: string | null;
+    }
+  | { type: 'RADIANT_TASK_ASSIGNED'; taskId: string; title: string }
   | { type: 'LEVEL_UP'; beanId: string; newLevel: number; newStage: LifeStage }
   | { type: 'ACTION_REJECTED'; actionType: SimAction['type']; reason: string };
 

@@ -1,16 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ProjectedBubblePosition } from '../render/BeanView';
 import type { ProjectedFloatingPopup } from '../render/IslandView';
+import type { ProjectedNpcIndicator } from '../render/NpcView';
 import { SceneManager, type SceneStatus } from '../render/SceneManager';
 
 export interface CanvasViewportProps {
   lowPowerMode?: boolean;
   onPadSelect?: (padName: string | null) => void;
   onBeanTap?: (beanId: string) => void;
+  onNpcTap?: (npcId: string) => void;
   onFrameUpdate?: (
     dtSeconds: number,
     bubblePosition: ProjectedBubblePosition | null,
     floatingPopups?: readonly ProjectedFloatingPopup[],
+    npcIndicator?: ProjectedNpcIndicator | null,
   ) => void;
   onSceneReady?: (manager: SceneManager | null) => void;
 }
@@ -19,6 +22,7 @@ export function CanvasViewport({
   lowPowerMode = false,
   onPadSelect,
   onBeanTap,
+  onNpcTap,
   onFrameUpdate,
   onSceneReady,
 }: CanvasViewportProps) {
@@ -27,6 +31,7 @@ export function CanvasViewport({
   const managerRef = useRef<SceneManager | null>(null);
   const onPadSelectRef = useRef(onPadSelect);
   const onBeanTapRef = useRef(onBeanTap);
+  const onNpcTapRef = useRef(onNpcTap);
   const onFrameUpdateRef = useRef(onFrameUpdate);
   const onSceneReadyRef = useRef(onSceneReady);
 
@@ -35,6 +40,7 @@ export function CanvasViewport({
 
   onPadSelectRef.current = onPadSelect;
   onBeanTapRef.current = onBeanTap;
+  onNpcTapRef.current = onNpcTap;
   onFrameUpdateRef.current = onFrameUpdate;
   onSceneReadyRef.current = onSceneReady;
 
@@ -61,8 +67,11 @@ export function CanvasViewport({
         onBeanTap: (beanId) => {
           onBeanTapRef.current?.(beanId);
         },
-        onFrameUpdate: (dtSeconds, bubblePosition, floatingPopups) => {
-          onFrameUpdateRef.current?.(dtSeconds, bubblePosition, floatingPopups);
+        onNpcTap: (npcId) => {
+          onNpcTapRef.current?.(npcId);
+        },
+        onFrameUpdate: (dtSeconds, bubblePosition, floatingPopups, npcIndicator) => {
+          onFrameUpdateRef.current?.(dtSeconds, bubblePosition, floatingPopups, npcIndicator);
         },
       });
       managerRef.current = manager;
