@@ -43,8 +43,11 @@ export interface JellyBeanEntity {
   tileId: string;
 }
 
+export type CropId = 'parsley' | 'tomato' | 'candy_cane' | 'hundred_beans';
+export type CropGrowthStage = 'sprout' | 'mid' | 'ripe';
+
 export interface CropState {
-  cropId: string;
+  cropId: CropId;
   plantedAtMs: number;
   growthSeconds: number;
   watered: boolean;
@@ -60,6 +63,30 @@ export interface TileState {
   pendingCoins?: number;
   /** Remaining cooldown seconds before the next free burger can be grabbed. */
   burgerCooldownSec?: number;
+  /** Remaining regrow seconds for a perennial Apple Tree (0 = 3 Apples ready to harvest). */
+  appleRegrowSec?: number;
+}
+
+export interface DriftingFeather {
+  id: string;
+  spawnedAtMs: number;
+  expiresAtMs: number;
+  /** Normalized island spawn hint in [-1, 1] for 3D feather drift rendering. */
+  laneX: number;
+  laneZ: number;
+}
+
+export interface WeatherState {
+  current: WeatherType;
+  nextChangeMs: number;
+  /** Upcoming weather shown by the manual weather forecast indicator (DESIGN.md §3.6). */
+  forecast: WeatherType;
+  /** Active drifting feathers spawned during Chilly Wind. */
+  driftingFeathers: DriftingFeather[];
+  /** Seconds remaining until the next drifting feather spawns during Chilly Wind. */
+  featherSpawnCooldownSec: number;
+  /** Monotonic counter for deterministic drifting feather IDs. */
+  featherSeq: number;
 }
 
 export interface SwordItem {
@@ -89,6 +116,7 @@ export interface QuestProgressCounters {
   tomatoesHarvested: number;
   candyCanesHarvested: number;
   hundredBeansHarvested: number;
+  gardenCheckIns: number;
   gumdropRunsCompleted: number;
   bonusBeansRedeemed: number;
   witchDefeatedCount: number;
@@ -160,10 +188,7 @@ export interface GameState {
     flavors: string[];
     trophies: string[];
   };
-  weather: {
-    current: WeatherType;
-    nextChangeMs: number;
-  };
+  weather: WeatherState;
   quests: QuestsState;
   social: {
     friendsGiftedCount: number;
@@ -193,6 +218,13 @@ export type SimAction =
   | { type: 'USE_TOILET'; beanId?: string }
   | { type: 'COLLECT_STAND_INCOME'; tileId?: string }
   | { type: 'GRAB_FREE_BURGER'; tileId?: string; beanId?: string }
+  | { type: 'PLANT_CROP'; tileId: string; cropId: CropId }
+  | { type: 'WATER_CROP'; tileId: string }
+  | { type: 'HARVEST_CROP'; tileId: string }
+  | { type: 'HARVEST_APPLE_TREE'; tileId?: string }
+  | { type: 'CHECK_IN_GARDEN' }
+  | { type: 'COLLECT_FEATHER'; featherId?: string }
+  | { type: 'KNIT_BLANKET' }
   | { type: 'CLAIM_QUEST_REWARD'; questId?: string }
   | { type: 'REQUEST_RADIANT_TASK' };
 
@@ -224,6 +256,42 @@ export type SimEvent =
   | { type: 'STAND_INCOME_COLLECTED'; tileId: string; coinsCollected: number }
   | { type: 'BURGER_EATEN'; beanId: string; tileId: string; xpGained: number }
   | {
+      type: 'CROP_PLANTED';
+      tileId: string;
+      cropId: CropId;
+      coinsSpent: number;
+      autoWatered: boolean;
+    }
+  | { type: 'CROP_WATERED'; tileId: string; cropId: CropId; xpGained: number }
+  | {
+      type: 'CROP_HARVESTED';
+      tileId: string;
+      cropId: CropId;
+      coinsGained: number;
+      xpGained: number;
+      itemYield: number;
+      miniBeanBurstCount: number;
+      sproutedBeanId: string | null;
+    }
+  | { type: 'APPLE_TREE_HARVESTED'; tileId: string; applesGained: number; xpGained: number }
+  | { type: 'VILLAGER_SPROUTED'; beanId: string; beanName: string; tileId: string }
+  | {
+      type: 'WEATHER_CHANGED';
+      previous: WeatherType;
+      current: WeatherType;
+      nextForecast: WeatherType;
+      nextChangeMs: number;
+    }
+  | { type: 'FEATHER_COLLECTED'; featherId: string; totalFeathers: number; xpGained: number }
+  | {
+      type: 'BLANKET_KNITTED';
+      feathersSpent: number;
+      totalBlankets: number;
+      usedLoom: boolean;
+      xpGained: number;
+      coinsGained: number;
+    }
+  | {
       type: 'DR_BUBBLEGUM_KNOCKED';
       questId: string;
       questTitle: string;
@@ -254,6 +322,7 @@ export interface OfflineCatchUpSummary {
   sleptRestored: boolean;
   autoCookedMeals: number;
   coinsEarned: number;
+  cropsRipened: number;
 }
 
 export interface OfflineCatchUpResult {

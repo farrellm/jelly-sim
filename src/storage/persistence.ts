@@ -6,10 +6,13 @@ import {
   stageForLevel,
 } from '../sim/constants';
 import { createInitialState, sanitizeLabel } from '../sim/engine';
+import { isCropId } from '../sim/farm';
 import { clamp, getNeedFloor } from '../sim/needs';
 import { createDefaultQuestCounters } from '../sim/quests';
 import { normalizeSeed } from '../sim/rng';
+import { rollNextWeather } from '../sim/weather';
 import type {
+  DriftingFeather,
   GameMode,
   GameState,
   JellyBeanEntity,
@@ -179,7 +182,7 @@ function normalizeTiles(
     const buildingTier = Math.floor(asNonNegativeNumber(value.buildingTier, building ? 1 : 0));
 
     let crop: TileState['crop'] = null;
-    if (isPlainRecord(value.crop) && typeof value.crop.cropId === 'string') {
+    if (isPlainRecord(value.crop) && isCropId(value.crop.cropId)) {
       crop = {
         cropId: value.crop.cropId,
         plantedAtMs: asNonNegativeNumber(value.crop.plantedAtMs, 0),
@@ -206,10 +209,35 @@ function normalizeTiles(
       tile.burgerCooldownSec = burgerCooldownSec;
     }
 
+    const appleRegrowSec = asFiniteNumber(value.appleRegrowSec);
+    if (appleRegrowSec !== null && appleRegrowSec >= 0) {
+      tile.appleRegrowSec = appleRegrowSec;
+    }
+
     normalized[key] = tile;
   }
 
   return Object.keys(normalized).length > 0 ? normalized : { ...fallbackTiles };
+}
+
+function normalizeDriftingFeathers(rawFeathers: unknown): DriftingFeather[] {
+  if (!Array.isArray(rawFeathers)) return [];
+  const feathers: DriftingFeather[] = [];
+  for (const item of rawFeathers) {
+    if (!isPlainRecord(item)) continue;
+    if (typeof item.id !== 'string' || item.id.length === 0) continue;
+    const laneX = asFiniteNumber(item.laneX);
+    const laneZ = asFiniteNumber(item.laneZ);
+    if (laneX === null || laneZ === null) continue;
+    feathers.push({
+      id: item.id,
+      spawnedAtMs: asNonNegativeNumber(item.spawnedAtMs, 0),
+      expiresAtMs: asNonNegativeNumber(item.expiresAtMs, 0),
+      laneX: clamp(laneX, -1, 1),
+      laneZ: clamp(laneZ, -1, 1),
+    });
+  }
+  return feathers;
 }
 
 function normalizeSwords(rawSwords: unknown): SwordItem[] {
@@ -258,6 +286,7 @@ function normalizeQuestCounters(raw: unknown): QuestProgressCounters {
     tomatoesHarvested: Math.floor(asNonNegativeNumber(raw.tomatoesHarvested, 0)),
     candyCanesHarvested: Math.floor(asNonNegativeNumber(raw.candyCanesHarvested, 0)),
     hundredBeansHarvested: Math.floor(asNonNegativeNumber(raw.hundredBeansHarvested, 0)),
+    gardenCheckIns: Math.floor(asNonNegativeNumber(raw.gardenCheckIns, 0)),
     gumdropRunsCompleted: Math.floor(asNonNegativeNumber(raw.gumdropRunsCompleted, 0)),
     bonusBeansRedeemed: Math.floor(asNonNegativeNumber(raw.bonusBeansRedeemed, 0)),
     witchDefeatedCount: Math.floor(asNonNegativeNumber(raw.witchDefeatedCount, 0)),
@@ -421,10 +450,22 @@ export function migrateState(
       flavors,
       trophies: asStringArray(rawUnlocks.trophies, []),
     },
-    weather: {
-      current: isWeatherType(rawWeather.current) ? rawWeather.current : defaults.weather.current,
-      nextChangeMs: asNonNegativeNumber(rawWeather.nextChangeMs, defaults.weather.nextChangeMs),
-    },
+    weather: (() => {
+      const current = isWeatherType(rawWeather.current)
+        ? rawWeather.current
+        : defaults.weather.current;
+      const forecast = isWeatherType(rawWeather.forecast)
+        ? rawWeather.forecast
+        : rollNextWeather(current, defaults.rngState).weather;
+      return {
+        current,
+        nextChangeMs: asNonNegativeNumber(rawWeather.nextChangeMs, defaults.weather.nextChangeMs),
+        forecast,
+        driftingFeathers: normalizeDriftingFeathers(rawWeather.driftingFeathers),
+        featherSpawnCooldownSec: asNonNegativeNumber(rawWeather.featherSpawnCooldownSec, 0),
+        featherSeq: Math.floor(asNonNegativeNumber(rawWeather.featherSeq, 0)),
+      };
+    })(),
     quests: {
       completedIds: asStringArray(rawQuests.completedIds, []),
       activeQuestId:

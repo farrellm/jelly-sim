@@ -107,17 +107,7 @@ export function tickBeanNeeds(
     sleep = clamp(bean.needs.sleep - rates.sleepPerMin * dtMinutes, floor, NEED_MAX);
   }
 
-  // Mood drifts toward the average of the other four needs, modified by Cozy Rain & Baby Mode.
-  const avgOtherNeeds = (hunger + warmth + sleep + hygiene) / 4;
-  const moodDiff = avgOtherNeeds - bean.needs.mood;
-  const maxMoodDrift = rates.moodDriftPerMin * dtMinutes;
-  const moodAfterDrift = bean.needs.mood + clamp(moodDiff, -maxMoodDrift, maxMoodDrift);
-  const rainBoost =
-    options.weather === 'cozy_rain' ? rates.cozyRainMoodBoostPerMin * dtMinutes : 0;
-  const babyDecay = rates.moodBaseDecayPerMin * dtMinutes;
-  const mood = clamp(moodAfterDrift - babyDecay + rainBoost, floor, NEED_MAX);
-
-  // Anger climbs when any core need is critical (< 20), and cools when all are comfortable (>= 40).
+  // Check core distress thresholds before mood & anger updates.
   const hasCriticalNeed =
     hunger < CRITICAL_NEED_THRESHOLD ||
     warmth < CRITICAL_NEED_THRESHOLD ||
@@ -128,6 +118,20 @@ export function tickBeanNeeds(
     warmth >= CALM_NEED_THRESHOLD &&
     sleep >= CALM_NEED_THRESHOLD &&
     hygiene >= CALM_NEED_THRESHOLD;
+
+  // Mood drifts toward the average of the other four needs, modified by Cozy Rain & Baby Mode.
+  const avgOtherNeeds = (hunger + warmth + sleep + hygiene) / 4;
+  const moodDiff = avgOtherNeeds - bean.needs.mood;
+  const maxMoodDrift = rates.moodDriftPerMin * dtMinutes;
+  const moodAfterDrift = bean.needs.mood + clamp(moodDiff, -maxMoodDrift, maxMoodDrift);
+  const rainBoost =
+    options.weather === 'cozy_rain' && !hasCriticalNeed
+      ? rates.cozyRainMoodBoostPerMin * dtMinutes
+      : 0;
+  const babyDecay = rates.moodBaseDecayPerMin * dtMinutes;
+  const mood = clamp(moodAfterDrift - babyDecay + rainBoost, floor, NEED_MAX);
+
+  // Anger climbs when any core need is critical (< 20), and cools when all are comfortable (>= 40).
 
   let nextAnger = bean.anger;
   if (hasCriticalNeed) {

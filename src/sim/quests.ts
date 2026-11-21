@@ -84,6 +84,7 @@ export function createDefaultQuestCounters(): QuestProgressCounters {
     tomatoesHarvested: 0,
     candyCanesHarvested: 0,
     hundredBeansHarvested: 0,
+    gardenCheckIns: 0,
     gumdropRunsCompleted: 0,
     bonusBeansRedeemed: 0,
     witchDefeatedCount: 0,
@@ -737,6 +738,29 @@ export function applyQuestProgressAfterEvents(
         break;
       case 'BEAN_PETTED':
         counters.petsGiven += 1;
+        countersChanged = true;
+        break;
+      case 'CROP_HARVESTED':
+        if (event.cropId === 'parsley') {
+          counters.parsleyHarvested += 1;
+          countersChanged = true;
+        } else if (event.cropId === 'tomato') {
+          counters.tomatoesHarvested += 1;
+          countersChanged = true;
+        } else if (event.cropId === 'candy_cane') {
+          counters.candyCanesHarvested += 1;
+          countersChanged = true;
+        } else if (event.cropId === 'hundred_beans') {
+          counters.hundredBeansHarvested += 1;
+          countersChanged = true;
+        }
+        break;
+      case 'FEATHER_COLLECTED':
+        counters.feathersGathered += 1;
+        countersChanged = true;
+        break;
+      case 'BLANKET_KNITTED':
+        counters.blanketsKnitted += 1;
         countersChanged = true;
         break;
       default:

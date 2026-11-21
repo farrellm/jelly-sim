@@ -10,6 +10,14 @@ import {
   stageForLevel,
   xpForLevel,
 } from './constants';
+import {
+  harvestAppleTree,
+  harvestCrop,
+  knitBlanket,
+  plantCrop,
+  tickFarmTiles,
+  waterCrop,
+} from './farm';
 import { clamp, getNeedFloor, tickBeanNeeds } from './needs';
 import {
   applyQuestProgressAfterEvents,
@@ -28,6 +36,7 @@ import {
   upgradeHouse,
   useToilet,
 } from './village';
+import { collectDriftingFeather, createInitialWeatherState, tickWeather } from './weather';
 import type {
   DispatchResult,
   GameMode,
@@ -102,6 +111,9 @@ export function createInitialState(options: CreateInitialStateOptions = {}): Gam
     tileId: 'plot_pad_0',
   };
 
+  const initialSeed = normalizeSeed(options.seed ?? INITIAL_STARTER_CONFIG.defaultRngSeed);
+  const weatherInit = createInitialWeatherState(nowMs, initialSeed);
+
   return {
     schemaVersion: CURRENT_SCHEMA_VERSION,
     slotId,
@@ -111,7 +123,7 @@ export function createInitialState(options: CreateInitialStateOptions = {}): Gam
     createdAtMs: nowMs,
     lastTickMs: nowMs,
     sessionPlaySeconds: 0,
-    rngState: normalizeSeed(options.seed ?? INITIAL_STARTER_CONFIG.defaultRngSeed),
+    rngState: weatherInit.nextRngState,
     currencies: {
       jellyCoins: INITIAL_STARTER_CONFIG.initialJellyCoins,
       beanBucks: INITIAL_STARTER_CONFIG.initialBeanBucks,
@@ -141,10 +153,7 @@ export function createInitialState(options: CreateInitialStateOptions = {}): Gam
       flavors: [INITIAL_STARTER_CONFIG.defaultFlavorId],
       trophies: [],
     },
-    weather: {
-      current: 'sunny',
-      nextChangeMs: nowMs + INITIAL_STARTER_CONFIG.initialWeatherDurationMs,
-    },
+    weather: weatherInit.weather,
     quests: createInitialQuestsState(),
     social: {
       friendsGiftedCount: 0,
@@ -647,6 +656,47 @@ function reduceCoreAction(state: GameState, action: SimAction, nowMs?: number): 
       return grabFreeBurger(state, action.tileId, action.beanId, nowMs);
     }
 
+    case 'PLANT_CROP': {
+      return plantCrop(state, action.tileId, action.cropId, nowMs);
+    }
+
+    case 'WATER_CROP': {
+      return waterCrop(state, action.tileId, nowMs);
+    }
+
+    case 'HARVEST_CROP': {
+      return harvestCrop(state, action.tileId, nowMs);
+    }
+
+    case 'HARVEST_APPLE_TREE': {
+      return harvestAppleTree(state, action.tileId, nowMs);
+    }
+
+    case 'CHECK_IN_GARDEN': {
+      return {
+        state: {
+          ...state,
+          lastTickMs: nextLastTickMs,
+          quests: {
+            ...state.quests,
+            counters: {
+              ...state.quests.counters,
+              gardenCheckIns: state.quests.counters.gardenCheckIns + 1,
+            },
+          },
+        },
+        events,
+      };
+    }
+
+    case 'COLLECT_FEATHER': {
+      return collectDriftingFeather(state, action.featherId, nowMs);
+    }
+
+    case 'KNIT_BLANKET': {
+      return knitBlanket(state, nowMs);
+    }
+
     case 'CLAIM_QUEST_REWARD': {
       return claimQuestReward(state, action.questId, nowMs);
     }
@@ -667,27 +717,36 @@ export function tick(state: GameState, dtSeconds: number, nowMs?: number): GameS
       : state;
   }
 
+  const nextLastTickMs =
+    nowMs !== undefined
+      ? Math.max(state.lastTickMs, nowMs)
+      : state.lastTickMs + Math.round(dtSeconds * 1000);
+
+  const weatherStep = tickWeather(state, dtSeconds, nextLastTickMs, { isOffline: false });
+  const activeWeather = weatherStep.weather.current;
+
   const nextBeans = state.beans.map((bean) =>
     tickBeanNeeds(bean, dtSeconds, {
       mode: state.mode,
-      weather: state.weather.current,
+      weather: activeWeather,
       isOffline: false,
     }),
   );
 
   const villageStep = tickVillageBuildings(state, dtSeconds);
-
-  const nextLastTickMs =
-    nowMs !== undefined ? Math.max(state.lastTickMs, nowMs) : state.lastTickMs + Math.round(dtSeconds * 1000);
+  const farmStep = tickFarmTiles(villageStep.tiles, activeWeather, dtSeconds);
+  const tilesChanged = villageStep.changed || farmStep.changed;
 
   const tickedState: GameState = {
     ...state,
     lastTickMs: nextLastTickMs,
     sessionPlaySeconds: state.sessionPlaySeconds + dtSeconds,
-    island: villageStep.changed
+    rngState: weatherStep.rngState,
+    weather: weatherStep.weather,
+    island: tilesChanged
       ? {
           ...state.island,
-          tiles: villageStep.tiles,
+          tiles: farmStep.tiles,
         }
       : state.island,
     beans: nextBeans,
@@ -719,6 +778,7 @@ export function applyOfflineCatchUp(state: GameState, nowMs: number): OfflineCat
         sleptRestored: false,
         autoCookedMeals: 0,
         coinsEarned: 0,
+        cropsRipened: 0,
       },
     };
   }
@@ -731,6 +791,7 @@ export function applyOfflineCatchUp(state: GameState, nowMs: number): OfflineCat
   let sleptRestored = false;
   let autoCookedMeals = 0;
   let totalCoinsAccrued = 0;
+  let totalCropsRipened = 0;
 
   let remainingSec = cappedSeconds;
   while (remainingSec > 0) {
@@ -753,6 +814,13 @@ export function applyOfflineCatchUp(state: GameState, nowMs: number): OfflineCat
       tiles = villageStep.tiles;
     }
     totalCoinsAccrued += villageStep.coinsAccrued;
+
+    // Advance garden crops & Apple Tree regrow timers offline
+    const farmStep = tickFarmTiles(tiles, state.weather.current, stepSec);
+    if (farmStep.changed) {
+      tiles = farmStep.tiles;
+    }
+    totalCropsRipened += farmStep.cropsRipened;
 
     beans = beans.map((bean) => {
       if (bean.isSleeping) {
@@ -803,10 +871,15 @@ export function applyOfflineCatchUp(state: GameState, nowMs: number): OfflineCat
     );
   }
 
+  // Catch up the weather clock to safeNowMs so players return to a fresh active weather cycle.
+  const weatherCatchUp = tickWeather(state, cappedSeconds, safeNowMs, { isOffline: true });
+
   return {
     state: {
       ...state,
       lastTickMs: safeNowMs,
+      rngState: weatherCatchUp.rngState,
+      weather: weatherCatchUp.weather,
       island: tiles !== state.island.tiles ? { ...state.island, tiles } : state.island,
       inventory,
       beans,
@@ -818,6 +891,7 @@ export function applyOfflineCatchUp(state: GameState, nowMs: number): OfflineCat
       sleptRestored,
       autoCookedMeals,
       coinsEarned: Math.floor(totalCoinsAccrued),
+      cropsRipened: totalCropsRipened,
     },
   };
 }
